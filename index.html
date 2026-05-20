@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TRADING TOOLS · 전략 백테스트 허브</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+:root{
+  --bg:#07090e;--bg2:#0c1018;--bg3:#101520;
+  --ln:#182030;--ln2:#1e2d42;
+  --tx:#a8bacf;--tx2:#5a7090;--tx3:#2e4560;--w:#ddeaf8;
+  --G:#00e5a0;--R:#ff3d5a;--Y:#ffb830;
+  --B:#3d8bff;--Bd:rgba(61,139,255,.1);
+  --O:#ff8c42;--Od:rgba(255,140,66,.1);
+  --P:#a78bfa;--Pd:rgba(167,139,250,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font-family:'Space Mono',monospace;min-height:100vh;display:flex;flex-direction:column}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--ln) 1px,transparent 1px),linear-gradient(90deg,var(--ln) 1px,transparent 1px);background-size:44px 44px;opacity:.3;pointer-events:none;z-index:0}
+
+.z{position:relative;z-index:1;max-width:1000px;margin:0 auto;padding:40px 20px;flex:1;display:flex;flex-direction:column}
+
+/* HEADER */
+header{text-align:center;margin-bottom:52px}
+.logo{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:var(--w);letter-spacing:-2px;margin-bottom:8px}
+.logo span{color:var(--B)}
+.sub{font-size:10px;color:var(--tx3);letter-spacing:3px;text-transform:uppercase}
+.desc{font-size:11px;color:var(--tx2);margin-top:14px;line-height:1.8}
+
+/* GRID */
+.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-bottom:32px}
+
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--ln2);border-radius:14px;padding:24px;cursor:pointer;transition:all .25s;text-decoration:none;display:block;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .25s}
+.card:hover{transform:translateY(-3px);box-shadow:0 12px 36px rgba(0,0,0,.4)}
+.card:hover::before{opacity:1}
+
+.card-rsi::before{background:linear-gradient(135deg,var(--Bd),transparent)}
+.card-rsi:hover{border-color:var(--B)}
+.card-rsi2::before{background:linear-gradient(135deg,var(--Od),transparent)}
+.card-rsi2:hover{border-color:var(--O)}
+.card-ichi::before{background:linear-gradient(135deg,var(--Pd),transparent)}
+.card-ichi:hover{border-color:var(--P)}
+.card-coming::before{background:linear-gradient(135deg,rgba(90,112,144,.1),transparent)}
+.card-coming{cursor:default;opacity:.5}
+.card-coming:hover{transform:none;box-shadow:none}
+
+.card-icon{font-size:28px;margin-bottom:14px}
+.card-tag{display:inline-flex;align-items:center;gap:5px;font-size:8px;padding:3px 8px;border-radius:4px;font-weight:700;letter-spacing:1px;margin-bottom:10px;text-transform:uppercase}
+.tag-rsi{background:var(--Bd);color:var(--B);border:1px solid rgba(61,139,255,.2)}
+.tag-rsi2{background:var(--Od);color:var(--O);border:1px solid rgba(255,140,66,.2)}
+.tag-ichi{background:var(--Pd);color:var(--P);border:1px solid rgba(167,139,250,.2)}
+.tag-soon{background:rgba(90,112,144,.1);color:var(--tx3);border:1px solid var(--ln2)}
+
+.card-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--w);margin-bottom:6px;letter-spacing:-.5px}
+.card-desc{font-size:10px;color:var(--tx2);line-height:1.8;margin-bottom:14px}
+
+.card-meta{display:flex;flex-wrap:wrap;gap:6px}
+.meta-item{font-size:9px;padding:3px 7px;border-radius:4px;background:var(--bg3);color:var(--tx3);border:1px solid var(--ln)}
+
+.card-arrow{position:absolute;right:20px;bottom:20px;font-size:18px;color:var(--tx3);transition:all .25s}
+.card:hover .card-arrow{color:var(--w);transform:translateX(4px)}
+
+/* FOOTER */
+footer{text-align:center;padding:24px 0;border-top:1px solid var(--ln2);font-size:9px;color:var(--tx3);letter-spacing:1px;margin-top:auto}
+
+@media(max-width:640px){
+  .grid{grid-template-columns:1fr}
+  .logo{font-size:28px}
+}
+</style>
+</head>
+<body>
+<div class="z">
+
+  <header>
+    <div class="logo">TRADING<span>TOOLS</span></div>
+    <div class="sub">BTC 선물 · 전략 백테스트 허브</div>
+    <div class="desc">
+      바이비트 실제 과거 데이터 기반 · 전략별 승률 / 수익률 / MDD 분석<br>
+      아래 전략을 선택해서 백테스트를 실행하세요
+    </div>
+  </header>
+
+  <div class="grid">
+
+    <!-- RSI 전략 -->
+    <a class="card card-rsi" href="./rsi-backtest/">
+      <div class="card-icon">📊</div>
+      <div class="card-tag tag-rsi">RSI 전략</div>
+      <div class="card-title">RSI 역추세 전략</div>
+      <div class="card-desc">
+        RSI 20 이하 구간에서 기울기 반전 시 롱 진입<br>
+        RSI 80 이상 구간에서 기울기 반전 시 숏 진입<br>
+        트레일링 스탑으로 수익 극대화
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">1m · 5m · 4H · 1D</span>
+        <span class="meta-item">BTC · ETH · SOL · XRP · DOGE</span>
+        <span class="meta-item">멀티 종목 스캔</span>
+        <span class="meta-item">최대 4년치</span>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>
+
+    <!-- RSI(2) 전략 -->
+    <a class="card card-rsi2" href="./rsi2-backtest/">
+      <div class="card-icon">⚡</div>
+      <div class="card-tag tag-rsi2">Larry Connors</div>
+      <div class="card-title">RSI(2) 전략</div>
+      <div class="card-desc">
+        RSI(2) &lt; 1.5 → 다음 캔들 시가에 롱 진입<br>
+        RSI(2) &gt; 98.5 → 다음 캔들 시가에 숏 진입<br>
+        극단적 과매수/과매도 구간 반등 노림
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">15m · 1H · 4H · 1D</span>
+        <span class="meta-item">BTC · ETH · SOL · XRP · DOGE</span>
+        <span class="meta-item">시가 진입</span>
+        <span class="meta-item">최대 4년치</span>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>
+
+    <!-- 일목균형표 (준비중) -->
+    <a class="card card-ichi" href="./rsi-backtest/#ichi" onclick="return false">
+      <div class="card-icon">☁️</div>
+      <div class="card-tag tag-ichi">일목균형표</div>
+      <div class="card-title">일목균형표 전략</div>
+      <div class="card-desc">
+        선행스팬2 돌파 → 눌림 → 반등 시 롱 진입<br>
+        스팬2 직선 유지 기간으로 신뢰도 평가<br>
+        5m · 30m · 4H 멀티 타임프레임
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">5m · 30m · 4H</span>
+        <span class="meta-item">RSI 백테스트 탭에서 이용</span>
+      </div>
+      <div class="card-arrow" style="color:var(--tx3)">↗</div>
+    </a>
+
+    <!-- 추가 예정 -->
+    <div class="card card-coming">
+      <div class="card-icon">🔧</div>
+      <div class="card-tag tag-soon">Coming Soon</div>
+      <div class="card-title">추가 전략</div>
+      <div class="card-desc">
+        새로운 전략이 추가될 예정이에요<br>
+        MACD, 볼린저밴드, 이동평균 크로스 등<br>
+        전략 개발 중...
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">준비 중</span>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    TRADING TOOLS · 바이비트 실제 과거 데이터 기반 · 투자 참고용
+  </footer>
+
+</div>
+</body>
+</html>
