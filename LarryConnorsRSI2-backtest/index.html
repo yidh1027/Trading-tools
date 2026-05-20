@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RSI(2) 백테스트 · Larry Connors 전략</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@700;800&display=swap');
+:root{
+  --bg:#07090e;--bg2:#0c1018;--bg3:#101520;--bg4:#141c28;
+  --ln:#182030;--ln2:#1e2d42;--muted:#344860;
+  --tx:#a8bacf;--tx2:#5a7090;--tx3:#2e4560;--w:#ddeaf8;
+  --G:#00e5a0;--Gd:rgba(0,229,160,.08);--Gb:rgba(0,229,160,.22);
+  --R:#ff3d5a;--Rd:rgba(255,61,90,.08);--Rb:rgba(255,61,90,.22);
+  --Y:#ffb830;--Yd:rgba(255,184,48,.09);
+  --B:#3d8bff;--Bd:rgba(61,139,255,.1);
+  --P:#a78bfa;--Pd:rgba(167,139,250,.1);
+  --O:#ff8c42;--Od:rgba(255,140,66,.1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--tx);font-family:'Space Mono',monospace;font-size:12px;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(var(--ln) 1px,transparent 1px),linear-gradient(90deg,var(--ln) 1px,transparent 1px);background-size:44px 44px;opacity:.3;pointer-events:none;z-index:0}
+.z{position:relative;z-index:1;max-width:1400px;margin:0 auto;padding:18px}
+
+/* NAV */
+nav{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid var(--ln2);margin-bottom:20px;flex-wrap:wrap;gap:10px}
+.brand h1{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--w);letter-spacing:-1px}
+.brand h1 em{color:var(--O);font-style:normal}
+.brand p{font-size:9px;color:var(--tx3);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.strategy-badge{display:flex;align-items:center;gap:8px;padding:8px 14px;background:var(--Od);border:1px solid var(--O);border-radius:8px;font-size:10px;color:var(--O)}
+
+/* LAYOUT */
+.layout{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start}
+
+/* PANEL */
+.pnl{background:var(--bg2);border:1px solid var(--ln2);border-radius:11px;overflow:hidden;margin-bottom:12px}
+.pnl:last-child{margin-bottom:0}
+.ph{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;border-bottom:1px solid var(--ln)}
+.pt{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--tx2);letter-spacing:2px;text-transform:uppercase}
+.pb{padding:14px}
+
+/* FORM */
+.frow{display:flex;flex-direction:column;gap:3px;margin-bottom:10px}
+.flbl{font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px}
+.finp{background:var(--bg3);border:1px solid var(--ln2);border-radius:5px;padding:6px 9px;color:var(--w);font-family:'Space Mono',monospace;font-size:11px;outline:none;width:100%}
+.finp:focus{border-color:var(--O)}
+.fsel{background:var(--bg3);border:1px solid var(--ln2);border-radius:5px;padding:6px 9px;color:var(--w);font-family:'Space Mono',monospace;font-size:11px;outline:none;width:100%;cursor:pointer}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.hint{font-size:9px;color:var(--tx2);line-height:1.9;padding:10px 12px;background:var(--bg3);border-radius:7px;margin-bottom:12px}
+
+/* TF CHIPS */
+.tfrow{display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 10px}
+.tf{padding:4px 9px;border:1px solid var(--ln2);border-radius:5px;background:none;color:var(--tx3);font-family:'Space Mono',monospace;font-size:9px;cursor:pointer;transition:all .13s}
+.tf:hover{color:var(--tx);border-color:var(--muted)}
+.tf.on{color:var(--O);border-color:var(--O);background:var(--Od)}
+
+/* SYMBOL PICKER */
+.sym-pick{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.sym-lbl{display:flex;align-items:center;gap:5px;padding:5px 9px;background:var(--bg3);border:1px solid var(--ln2);border-radius:5px;cursor:pointer;font-size:10px;color:var(--tx2);transition:all .15s}
+.sym-lbl.on{border-color:var(--O);color:var(--O)}
+
+/* RUN BTN */
+.rbtn{width:100%;padding:13px;background:var(--O);border:none;border-radius:8px;color:#fff;font-family:'Syne',sans-serif;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:1px;transition:all .2s;position:relative;overflow:hidden}
+.rbtn::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);transform:translateX(-100%);transition:transform .4s}
+.rbtn:hover::after{transform:translateX(100%)}
+.rbtn:hover{filter:brightness(1.12);transform:translateY(-1px);box-shadow:0 6px 20px rgba(255,140,66,.3)}
+.rbtn:active{transform:translateY(0)}
+.rbtn.running{background:var(--muted);cursor:default;transform:none;box-shadow:none}
+
+/* PROGRESS */
+.prog-wrap{margin-top:10px;display:none}
+.prog-wrap.show{display:block}
+.prog-bar{height:4px;background:var(--ln2);border-radius:2px;overflow:hidden;margin-bottom:5px}
+.prog-fill{height:100%;background:var(--O);border-radius:2px;transition:width .3s}
+.prog-txt{font-size:9px;color:var(--tx3)}
+
+/* STAT STRIP */
+.sstrip{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-bottom:14px}
+.sc{background:var(--bg2);border:1px solid var(--ln2);border-radius:9px;padding:12px 14px}
+.sc-l{font-size:8px;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px}
+.sc-v{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--w)}
+.sc-v.g{color:var(--G)}.sc-v.r{color:var(--R)}.sc-v.y{color:var(--Y)}.sc-v.o{color:var(--O)}
+.sc-v.sm{font-size:12px;color:var(--tx2)}
+.sc-sub{font-size:9px;color:var(--tx3);margin-top:2px}
+
+/* CHART */
+canvas{width:100%;height:200px;display:block;border-radius:6px;background:var(--bg3)}
+
+/* CONF */
+.conf-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:7px}
+.conf-label{font-size:10px;color:var(--tx2);width:80px;flex-shrink:0}
+.conf-bar{flex:1;height:8px;background:var(--ln2);border-radius:4px;overflow:hidden}
+.conf-fill{height:100%;border-radius:4px;transition:width .6s}
+.conf-val{font-size:10px;font-weight:700;width:40px;text-align:right;flex-shrink:0}
+
+/* STRAT RESULT */
+.sr{background:var(--bg3);border:1px solid var(--ln2);border-radius:8px;padding:12px 14px;margin-bottom:8px}
+.sr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.sr-name{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--w);display:flex;align-items:center;gap:7px}
+.sr-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.sr-l{font-size:8px;color:var(--tx3);text-transform:uppercase;letter-spacing:.5px}
+.stag{font-size:8px;padding:2px 6px;border-radius:4px;font-weight:700;background:var(--Od);color:var(--O)}
+
+/* TABLE */
+.tbl-wrap{max-height:420px;overflow-y:auto}
+.tbl-wrap::-webkit-scrollbar{width:3px}
+.tbl-wrap::-webkit-scrollbar-thumb{background:var(--ln2);border-radius:2px}
+table{width:100%;border-collapse:collapse;font-size:10px}
+thead th{padding:8px 10px;text-align:left;font-size:8px;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;border-bottom:1px solid var(--ln2);position:sticky;top:0;background:var(--bg2);font-family:'Space Mono',monospace;font-weight:400;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--ln);transition:background .1s}
+tbody tr:hover{background:var(--bg3)}
+tbody td{padding:7px 10px;color:var(--tx2);white-space:nowrap}
+.td-l{color:var(--G);font-weight:700}.td-s{color:var(--R);font-weight:700}
+.td-win{color:var(--G)}.td-loss{color:var(--R)}
+
+/* EMPTY */
+.empty{text-align:center;padding:52px 16px;color:var(--tx3);line-height:2.6;font-size:11px}
+.empty big{display:block;font-size:32px;opacity:.2;margin-bottom:8px}
+
+/* TOAST */
+#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(14px);background:var(--bg4);border:1px solid var(--ln2);border-radius:7px;padding:8px 16px;font-size:11px;color:var(--w);opacity:0;transition:all .25s;pointer-events:none;z-index:9999;white-space:nowrap}
+
+@media(max-width:1050px){.layout{grid-template-columns:1fr}.sstrip{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:600px){.sstrip{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+<div class="z">
+
+<nav>
+  <div class="brand">
+    <h1>RSI<em>(2)</em> BACKTEST</h1>
+    <p>Larry Connors 전략 · BTC 선물 백테스트</p>
+  </div>
+  <div class="strategy-badge">
+    ⚡ RSI(2) &lt; 1.5 → 롱 &nbsp;|&nbsp; RSI(2) &gt; 98.5 → 숏 &nbsp;|&nbsp; 다음 캔들 시가 진입
+  </div>
+</nav>
+
+<!-- STAT STRIP -->
+<div class="sstrip" id="statStrip" style="display:none">
+  <div class="sc"><div class="sc-l">최종 잔고</div><div class="sc-v" id="s-bal">--</div><div class="sc-sub" id="s-ret">--</div></div>
+  <div class="sc"><div class="sc-l">분석 매매수</div><div class="sc-v o" id="s-tot">--</div><div class="sc-sub" id="s-found">--</div></div>
+  <div class="sc"><div class="sc-l">승률</div><div class="sc-v" id="s-wr">--</div></div>
+  <div class="sc"><div class="sc-l">평균 수익</div><div class="sc-v g" id="s-avgW">--</div></div>
+  <div class="sc"><div class="sc-l">평균 손실</div><div class="sc-v r" id="s-avgL">--</div></div>
+  <div class="sc"><div class="sc-l">최대 낙폭 MDD</div><div class="sc-v y" id="s-mdd">--</div></div>
+</div>
+
+<div class="layout">
+<!-- ── 좌측: 설정 ── -->
+<div>
+  <!-- 전략 설명 -->
+  <div class="pnl">
+    <div class="ph"><span class="pt" style="color:var(--O)">Larry Connors RSI(2) 전략</span></div>
+    <div class="pb">
+      <div class="hint" style="border-left:2px solid var(--O)">
+        <b style="color:var(--O)">Larry Connors RSI(2)란?</b><br>
+        RSI를 기간 2로 설정하면 단기 과열/과매도에 극도로 민감하게 반응해요.<br>
+        RSI(14)가 30/70을 기준으로 쓴다면<br>
+        RSI(2)는 <b style="color:var(--G)">1~5</b> / <b style="color:var(--R)">95~99</b>가 신호 구간이에요.<br><br>
+        <b style="color:var(--G)">▲ LONG:</b> RSI(2) &lt; 1.5 → 극단적 과매도<br>
+        → <b>다음 캔들 시가</b>에 롱 진입<br>
+        <b style="color:var(--R)">▼ SHORT:</b> RSI(2) &gt; 98.5 → 극단적 과매수<br>
+        → <b>다음 캔들 시가</b>에 숏 진입<br><br>
+        <b style="color:var(--Y)">핵심:</b> 직전 봉 종가가 아닌 <b>다음 봉 시가</b>에 진입
+      </div>
+
+      <!-- 기본 설정 -->
+      <div class="fgrid">
+        <div class="frow"><div class="flbl">초기 시드 (USDT)</div><input class="finp" id="seed" type="number" value="10000"></div>
+        <div class="frow"><div class="flbl">1회 진입 비율 (%)</div><input class="finp" id="betPct" type="number" value="10"></div>
+        <div class="frow"><div class="flbl">레버리지</div><input class="finp" id="lev" type="number" value="5"></div>
+        <div class="frow"><div class="flbl">수수료 (%)</div><input class="finp" id="fee" type="number" value="0.055" step="0.001"></div>
+      </div>
+      <div class="frow">
+        <div class="flbl">최대 추출 신호 수</div>
+        <select class="fsel" id="maxSig">
+          <option value="30">30회 (빠름)</option>
+          <option value="50">50회</option>
+          <option value="100" selected>100회 (권장)</option>
+          <option value="200">200회 (느림)</option>
+        </select>
+      </div>
+      <div class="frow">
+        <div class="flbl">백테스트 기간</div>
+        <select class="fsel" id="period">
+          <option value="1w">1주일</option>
+          <option value="2w">2주일</option>
+          <option value="1m">1개월</option>
+          <option value="3m">3개월</option>
+          <option value="6m">6개월</option>
+          <option value="1y">1년</option>
+          <option value="2y" selected>2년 (권장)</option>
+          <option value="3y">3년</option>
+          <option value="4y">4년</option>
+        </select>
+      </div>
+
+      <!-- 종목 선택 -->
+      <div class="frow">
+        <div class="flbl">스캔 종목</div>
+        <div class="sym-pick" id="symPick">
+          <label class="sym-lbl on"><input type="checkbox" value="BTCUSDT" checked hidden>BTC</label>
+          <label class="sym-lbl"><input type="checkbox" value="ETHUSDT" hidden>ETH</label>
+          <label class="sym-lbl"><input type="checkbox" value="SOLUSDT" hidden>SOL</label>
+          <label class="sym-lbl"><input type="checkbox" value="XRPUSDT" hidden>XRP</label>
+          <label class="sym-lbl"><input type="checkbox" value="DOGEUSDT" hidden>DOGE</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RSI(2) 파라미터 -->
+  <div class="pnl">
+    <div class="ph"><span class="pt">전략 파라미터</span></div>
+    <div class="pb">
+      <!-- 타임프레임 -->
+      <div style="font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px">타임프레임</div>
+      <div class="tfrow" id="tfRow">
+        <button class="tf" data-tf="15">15m</button>
+        <button class="tf" data-tf="60">1H</button>
+        <button class="tf on" data-tf="240">4H</button>
+        <button class="tf" data-tf="D">1D</button>
+      </div>
+
+      <!-- RSI(2) 기준값 -->
+      <div class="fgrid">
+        <div class="frow">
+          <div class="flbl">RSI 기간</div>
+          <input class="finp" id="rsiPeriod" type="number" value="2" min="1">
+        </div>
+        <div class="frow">
+          <div class="flbl">롱 진입 (RSI &lt;)</div>
+          <input class="finp" id="rsiLong" type="number" value="1.5" step="0.5">
+        </div>
+        <div class="frow">
+          <div class="flbl">숏 진입 (RSI &gt;)</div>
+          <input class="finp" id="rsiShort" type="number" value="98.5" step="0.5">
+        </div>
+      </div>
+
+      <!-- 손절 / 트레일링 -->
+      <div style="background:var(--bg3);border-radius:7px;padding:10px 12px;border:1px solid var(--ln2);margin-top:2px">
+        <div style="font-size:9px;color:var(--tx3);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px">손절 · 익절 · 비용</div>
+        <div class="fgrid">
+          <div class="frow">
+            <div class="flbl">손절 % (레버 적용)</div>
+            <input class="finp" id="slPct" type="number" value="5" step="0.5" oninput="updateDesc()">
+          </div>
+          <div class="frow">
+            <div class="flbl">트레일링 간격 (실제 %)</div>
+            <input class="finp" id="trailPct" type="number" value="0.5" step="0.1">
+          </div>
+          <div class="frow">
+            <div class="flbl">펀딩비 (% / 8시간)</div>
+            <input class="finp" id="fundingRate" type="number" value="0.01" step="0.005">
+          </div>
+          <div class="frow">
+            <div class="flbl">손익분기 트레일링</div>
+            <select class="fsel" id="bepTrail">
+              <option value="0">비활성 (즉시 트레일링)</option>
+              <option value="1" selected>활성 (손익분기 후 트레일링)</option>
+            </select>
+          </div>
+        </div>
+        <div style="font-size:9px;color:var(--tx3);line-height:1.8;margin-top:6px;padding:7px 9px;background:var(--bg2);border-radius:5px;border:1px solid var(--ln)" id="slDesc">
+          손절: <b style="color:var(--R)" id="slVal">-5%</b>
+          <span>(레버 5배 → 실제 <b style="color:var(--R)" id="slReal">-1.0%</b> 하락 시)</span><br>
+          손익분기점: <b style="color:var(--Y)" id="bepVal">계산 중...</b>
+          <span style="color:var(--tx3)">(수수료+펀딩비 커버 후 트레일링 시작)</span><br>
+          펀딩비: 포지션 보유 시간 × 설정값% / 8h 자동 차감 (보수적 가정)
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button class="rbtn" id="rbtn" onclick="runBacktest()">▶ RSI(2) 백테스트 실행</button>
+  <div class="prog-wrap" id="progWrap">
+    <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <div class="prog-txt" id="progTxt">로딩 중...</div>
+  </div>
+</div>
+
+<!-- ── 우측: 결과 ── -->
+<div>
+  <!-- 신뢰도 -->
+  <div class="pnl" id="confPnl" style="display:none">
+    <div class="ph"><span class="pt">신뢰도 분석</span></div>
+    <div class="pb" id="confBars"></div>
+  </div>
+
+  <!-- 에쿼티 커브 -->
+  <div class="pnl" id="chartPnl" style="display:none">
+    <div class="ph">
+      <span class="pt">자산 곡선 (Equity Curve)</span>
+      <span style="font-size:9px;color:var(--tx3)" id="chartPeriod"></span>
+    </div>
+    <div class="pb" style="padding:12px"><canvas id="eqCanvas"></canvas></div>
+  </div>
+
+  <!-- 종목별 결과 -->
+  <div class="pnl" id="stratPnl" style="display:none">
+    <div class="ph"><span class="pt">종목별 결과</span></div>
+    <div class="pb" id="stratResults"></div>
+  </div>
+
+  <!-- 매매 내역 -->
+  <div class="pnl" id="tradePnl" style="display:none">
+    <div class="ph">
+      <span class="pt">매매 내역</span>
+      <span style="font-size:9px;color:var(--tx3)" id="tradeCount"></span>
+    </div>
+    <div style="padding:0">
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>종목</th><th>TF</th><th>방향</th>
+              <th>진입가(시가)</th><th>손절가</th><th>청산가</th>
+              <th>결과</th><th>손익($)</th><th>손익(%)</th>
+              <th>펀딩비($)</th><th>보유</th>
+              <th>잔고</th><th>RSI(2)</th><th>시간</th>
+            </tr>
+          </thead>
+          <tbody id="tradeBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 빈 상태 -->
+  <div id="emptyState">
+    <div class="empty">
+      <big>⚡</big>
+      Larry Connors RSI(2) 전략<br>
+      설정 후 백테스트를 실행하세요<br>
+      <span style="font-size:10px;color:var(--tx3)">RSI(2) &lt; 1.5 → 롱 / RSI(2) &gt; 98.5 → 숏<br>다음 캔들 시가에 진입</span>
+    </div>
+  </div>
+</div>
+</div>
+</div>
+<div id="toast"></div>
+
+<script>
+// ════════════════════════════════
+// STATE
+// ════════════════════════════════
+const activeTFs = new Set(['240']);
+
+// TF 버튼
+document.querySelectorAll('#tfRow .tf').forEach(b => {
+  b.addEventListener('click', () => {
+    activeTFs.has(b.dataset.tf)
+      ? (activeTFs.delete(b.dataset.tf), b.classList.remove('on'))
+      : (activeTFs.add(b.dataset.tf), b.classList.add('on'));
+  });
+});
+
+// 종목 체크박스
+document.querySelectorAll('#symPick .sym-lbl').forEach(lbl => {
+  lbl.addEventListener('click', () => {
+    const cb = lbl.querySelector('input');
+    cb.checked = !cb.checked;
+    lbl.classList.toggle('on', cb.checked);
+  });
+});
+
+function getSymbols() {
+  return [...document.querySelectorAll('#symPick input:checked')].map(i => i.value);
+}
+
+// 손절 설명 업데이트
+function updateDesc() {
+  const sl      = +document.getElementById('slPct').value    || 5;
+  const lev     = +document.getElementById('lev').value      || 5;
+  const fee     = +document.getElementById('fee').value      || 0.055;
+  const funding = +document.getElementById('fundingRate').value || 0.01;
+  const real    = (sl / lev).toFixed(2);
+  // 손익분기점: (수수료 왕복 + 예상 펀딩비 1회) / 레버리지
+  const bep     = ((fee * 2 + funding) / lev).toFixed(3);
+  document.getElementById('slVal').textContent  = '-' + sl + '%';
+  document.getElementById('slReal').textContent = '-' + real + '%';
+  const bepEl = document.getElementById('bepVal');
+  if (bepEl) bepEl.textContent = '+' + bep + '% 실제 상승 시';
+}
+['lev','fee','fundingRate'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', updateDesc);
+});
+// 초기 실행
+updateDesc();
+
+// ════════════════════════════════
+// API
+// ════════════════════════════════
+function periodToMs(p) {
+  const map = {'1w':7,'2w':14,'1m':30,'3m':90,'6m':180,'1y':365,'2y':730,'3y':1095,'4y':1460};
+  return Date.now() - (map[p]||730) * 86400000;
+}
+function ivToMs(iv) {
+  return {'1':60000,'3':180000,'5':300000,'15':900000,'30':1800000,'60':3600000,'240':14400000,'D':86400000}[iv]||14400000;
+}
+
+async function fetchCandles(symbol, interval, period, onProgress) {
+  // 1m 최대 1개월, 5m 최대 6개월 자동 제한
+  if (interval==='1' && !['1w','2w','1m'].includes(period)) return fetchCandles(symbol,'1','1m',onProgress);
+  if (interval==='5' && ['1y','2y','3y','4y'].includes(period)) return fetchCandles(symbol,'5','6m',onProgress);
+
+  const startMs  = periodToMs(period);
+  const candleMs = ivToMs(interval);
+  const totalC   = Math.ceil((Date.now()-startMs)/candleMs);
+  const totalB   = Math.ceil(totalC/1000);
+
+  const all = []; let endMs = Date.now(), batch = 0;
+  while (endMs > startMs) {
+    batch++;
+    if (onProgress) onProgress(batch, totalB);
+    const r = await fetch(
+      `https://api.bybit.com/v5/market/kline?category=linear&symbol=${symbol}&interval=${interval}&limit=1000&end=${endMs}`,
+      { signal: AbortSignal.timeout(15000) }
+    );
+    const j = await r.json();
+    if (!j.result?.list?.length) break;
+    const b = j.result.list.map(k => ({
+      t: parseInt(k[0])/1000, o: parseFloat(k[1]), h: parseFloat(k[2]),
+      l: parseFloat(k[3]),    c: parseFloat(k[4]), v: parseFloat(k[5])
+    })).sort((a,b) => a.t - b.t);
+    all.unshift(...b.filter(c => c.t*1000 >= startMs));
+    const oldest = b[0].t * 1000;
+    if (oldest <= startMs) break;
+    endMs = oldest - 1;
+    await sleep(100);
+  }
+  const unique = [...new Map(all.map(c=>[c.t,c])).values()].sort((a,b)=>a.t-b.t);
+  return unique;
+}
+
+// ════════════════════════════════
+// RSI(2) 계산
+// ════════════════════════════════
+function calcRSI(closes, n) {
+  const out = Array(closes.length).fill(null);
+  if (closes.length < n+1) return out;
+  let ag=0, al=0;
+  for (let i=1; i<=n; i++) {
+    const d = closes[i]-closes[i-1];
+    d>=0 ? ag+=d : al-=d;
+  }
+  ag/=n; al/=n;
+  out[n] = 100-100/(1+(al===0?1e9:ag/al));
+  for (let i=n+1; i<closes.length; i++) {
+    const d = closes[i]-closes[i-1];
+    ag=(ag*(n-1)+(d>0?d:0))/n;
+    al=(al*(n-1)+(d<0?-d:0))/n;
+    out[i] = 100-100/(1+(al===0?1e9:ag/al));
+  }
+  return out;
+}
+
+// ════════════════════════════════
+// 백테스트 엔진
+// ════════════════════════════════
+function backtest(candles, symbol, tf, cfg, maxSig) {
+  const closes = candles.map(c => c.c);
+  const rsi    = calcRSI(closes, cfg.rsiPeriod);
+  const n      = candles.length;
+  const trades = [];
+
+  const slReal      = cfg.slPct / cfg.lev;   // 실제 손절 가격 변동폭 %
+  const trail       = cfg.trailPct / 100;     // 트레일링 간격
+  const ivMs        = {'15':900,'60':3600,'240':14400,'D':86400}[tf] || 14400; // 캔들 초 단위
+  const fundingInterval = 8 * 3600;           // 8시간 = 28800초
+
+  for (let i = cfg.rsiPeriod; i < n-1 && trades.length < maxSig; i++) {
+    const rCur = rsi[i];
+    if (rCur === null) continue;
+
+    let dir = null;
+    if (rCur < cfg.rsiLong)       dir = 'long';
+    else if (rCur > cfg.rsiShort) dir = 'short';
+    if (!dir) continue;
+
+    if (i+1 >= n) continue;
+    const entryCandle = candles[i+1];
+    const entryPrice  = entryCandle.o;
+
+    // 손절가
+    const slPrice = dir === 'long'
+      ? entryPrice * (1 - slReal/100)
+      : entryPrice * (1 + slReal/100);
+
+    // ── 손익분기점 계산 ──
+    // BEP = 수수료(왕복) + 펀딩비 1회 / 레버리지
+    const feePct     = (cfg.fee * 2) / cfg.lev;  // 실제 가격 기준 수수료
+    const fundingPct = cfg.fundingRate / cfg.lev; // 실제 가격 기준 펀딩비 1회
+    const bepPct     = feePct + fundingPct;       // 손익분기 실제 가격 변동폭
+    const bepPrice   = dir === 'long'
+      ? entryPrice * (1 + bepPct/100)
+      : entryPrice * (1 - bepPct/100);
+
+    // ── 청산 탐색 ──
+    let exitPrice = null, result = null, exitIdx = -1;
+    let peak = entryPrice, trough = entryPrice;
+    let bepReached = false; // 손익분기 도달 여부
+    let totalFunding = 0;   // 누적 펀딩비 ($)
+
+    for (let k = i+1; k < Math.min(i+500, n); k++) {
+      const kc = candles[k];
+      const checkLow  = k===i+1 ? Math.min(kc.l,kc.c) : kc.l;
+      const checkHigh = k===i+1 ? Math.max(kc.h,kc.c) : kc.h;
+
+      // 펀딩비 누적 (캔들 하나 = ivMs초)
+      const fundingPerCandle = (ivMs / fundingInterval) * cfg.fundingRate / 100;
+      totalFunding += fundingPerCandle; // 포지션 비율 기준
+
+      if (dir === 'long') {
+        // 손절
+        if (checkLow <= slPrice) { exitPrice=slPrice; result='SL'; exitIdx=k; break; }
+        // 고점 갱신
+        if (kc.h > peak) peak = kc.h;
+        // 손익분기 도달 확인
+        if (!bepReached && cfg.bepTrail===1 && kc.h >= bepPrice) bepReached = true;
+        // 트레일링: BEP 활성화면 손익분기 도달 후에만 작동
+        if (!cfg.bepTrail || bepReached) {
+          const ts = peak * (1 - trail);
+          if (checkLow <= ts) { exitPrice=ts; result='TP'; exitIdx=k; break; }
+        }
+      } else {
+        // 손절
+        if (checkHigh >= slPrice) { exitPrice=slPrice; result='SL'; exitIdx=k; break; }
+        // 저점 갱신
+        if (kc.l < trough) trough = kc.l;
+        // 손익분기 도달 확인
+        if (!bepReached && cfg.bepTrail===1 && kc.l <= bepPrice) bepReached = true;
+        // 트레일링
+        if (!cfg.bepTrail || bepReached) {
+          const ts = trough * (1 + trail);
+          if (checkHigh >= ts) { exitPrice=ts; result='TP'; exitIdx=k; break; }
+        }
+      }
+    }
+
+    // 타임아웃 청산
+    if (!exitPrice) {
+      const li = Math.min(i+500, n-1);
+      exitPrice = candles[li].c;
+      if (dir==='long')  result = exitPrice>entryPrice?'TP':exitPrice<=slPrice?'SL':'BE';
+      else               result = exitPrice<entryPrice?'TP':exitPrice>=slPrice?'SL':'BE';
+      exitIdx = li;
+    }
+
+    const pnlPct = dir === 'long'
+      ? (exitPrice - entryPrice) / entryPrice
+      : (entryPrice - exitPrice) / entryPrice;
+
+    // 보유 시간 계산 (캔들 수 × 캔들 길이)
+    const holdCandles = exitIdx - (i+1);
+    const holdHours   = (holdCandles * ivMs / 3600).toFixed(1);
+
+    trades.push({
+      symbol, tf, dir, entryPrice, exitPrice, result, pnlPct,
+      slPrice, rsiVal: rCur,
+      slPct: cfg.slPct.toFixed(1),
+      fundingPct: totalFunding,  // 펀딩비 비율
+      holdHours,
+      bepReached,
+      time: new Date(entryCandle.t * 1000).toLocaleString('ko')
+    });
+
+    if (exitIdx > 0) i = exitIdx;
+  }
+  return trades;
+}
+
+// ════════════════════════════════
+// 포트폴리오 시뮬레이션
+// ════════════════════════════════
+function simulate(trades, seed, betPct, lev, feePct) {
+  let bal = seed;
+  const equity = [{ bal: seed }];
+  let peak=seed, maxDD=0, wins=0, losses=0, totalW=0, totalL=0;
+
+  const processed = trades.map((tr, idx) => {
+    const margin   = bal * (betPct/100);
+    const pos      = margin * lev;
+    const fee      = pos * (feePct/100) * 2;
+    // 펀딩비: 항상 비용으로 처리 (보수적 가정)
+    const funding  = pos * (tr.fundingPct || 0);
+    const pnl      = pos * tr.pnlPct - fee - funding;
+    bal = Math.max(0, bal + pnl);
+    if (pnl > 0) { wins++; totalW += pnl; }
+    else { losses++; totalL += Math.abs(pnl); }
+    peak  = Math.max(peak, bal);
+    maxDD = Math.max(maxDD, (peak-bal)/peak*100);
+    equity.push({ bal });
+    return { ...tr, margin, pnl, balAfter: bal, idx: idx+1 };
+  });
+
+  const total = wins + losses;
+  return {
+    processed, equity, balance: bal,
+    wins, losses, total,
+    wr: total>0 ? wins/total*100 : 0,
+    avgW: wins>0 ? totalW/wins : 0,
+    avgL: losses>0 ? totalL/losses : 0,
+    maxDD
+  };
+}
+
+// ════════════════════════════════
+// DRAW EQUITY CURVE
+// ════════════════════════════════
+function drawEquity(equity, seed) {
+  const canvas = document.getElementById('eqCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio||1;
+  const W = canvas.clientWidth, H = canvas.clientHeight;
+  canvas.width = W*dpr; canvas.height = H*dpr; ctx.scale(dpr, dpr);
+
+  const vals = equity.map(e=>e.bal);
+  const minV = Math.min(...vals)*0.995, maxV = Math.max(...vals)*1.005;
+  const pad  = {t:20,r:16,b:28,l:72};
+  const cw   = W-pad.l-pad.r, ch = H-pad.t-pad.b;
+  const toX  = i => pad.l+(i/(vals.length-1||1))*cw;
+  const toY  = v => pad.t+ch-((v-minV)/(maxV-minV||1))*ch;
+
+  // Grid
+  ctx.strokeStyle='rgba(30,45,66,.8)'; ctx.lineWidth=1;
+  for (let i=0;i<=4;i++) {
+    const y = pad.t+(i/4)*ch;
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(pad.l+cw,y); ctx.stroke();
+    ctx.fillStyle='#2e4560'; ctx.font='9px Space Mono'; ctx.textAlign='right';
+    ctx.fillText('$'+Math.round(maxV-(i/4)*(maxV-minV)).toLocaleString(), pad.l-5, y+3);
+  }
+  // Seed line
+  if (seed>=minV&&seed<=maxV) {
+    const sy=toY(seed);
+    ctx.strokeStyle='rgba(255,140,66,.3)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+    ctx.beginPath(); ctx.moveTo(pad.l,sy); ctx.lineTo(pad.l+cw,sy); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  // Fill
+  const isP = vals[vals.length-1] >= seed;
+  const grad = ctx.createLinearGradient(0,pad.t,0,pad.t+ch);
+  grad.addColorStop(0, isP?'rgba(0,229,160,.22)':'rgba(255,61,90,.18)');
+  grad.addColorStop(1, isP?'rgba(0,229,160,.01)':'rgba(255,61,90,.01)');
+  ctx.beginPath(); ctx.moveTo(toX(0), toY(vals[0]));
+  for (let i=1;i<vals.length;i++) ctx.lineTo(toX(i), toY(vals[i]));
+  ctx.lineTo(toX(vals.length-1), pad.t+ch); ctx.lineTo(toX(0), pad.t+ch);
+  ctx.closePath(); ctx.fillStyle=grad; ctx.fill();
+  // Line
+  ctx.strokeStyle=isP?'#00e5a0':'#ff3d5a'; ctx.lineWidth=2; ctx.lineJoin='round';
+  ctx.beginPath(); ctx.moveTo(toX(0), toY(vals[0]));
+  for (let i=1;i<vals.length;i++) ctx.lineTo(toX(i), toY(vals[i]));
+  ctx.stroke();
+}
+
+// ════════════════════════════════
+// RENDER
+// ════════════════════════════════
+function renderResults(result, seed, breakdowns, totalFound) {
+  const { balance, wins, losses, total, wr, avgW, avgL, maxDD } = result;
+  const ret = (balance-seed)/seed*100;
+
+  // Stats
+  document.getElementById('s-bal').textContent = '$'+balance.toLocaleString('en',{maximumFractionDigits:0});
+  document.getElementById('s-bal').className = 'sc-v '+(balance>=seed?'g':'r');
+  document.getElementById('s-ret').textContent = (ret>=0?'+':'')+ret.toFixed(2)+'%';
+  document.getElementById('s-tot').textContent = total+'회';
+  document.getElementById('s-found').textContent = '전체 발견: '+totalFound+'회';
+  document.getElementById('s-wr').textContent = wr.toFixed(1)+'%';
+  document.getElementById('s-wr').className = 'sc-v '+(wr>=50?'g':'r');
+  document.getElementById('s-avgW').textContent = '+$'+avgW.toFixed(2);
+  document.getElementById('s-avgL').textContent = '-$'+avgL.toFixed(2);
+  document.getElementById('s-mdd').textContent = maxDD.toFixed(2)+'%';
+  document.getElementById('statStrip').style.display = 'grid';
+
+  // Confidence
+  const pf = avgW/(avgL||1);
+  const confColor = total>=100?'#00e5a0':total>=50?'#ffb830':'#ff3d5a';
+  const confLabel = total>=100?'높음 ✅':total>=50?'보통 ⚠':'낮음 ❌';
+  document.getElementById('confPnl').style.display = 'block';
+  document.getElementById('confBars').innerHTML = `
+    <div class="conf-bar-row"><div class="conf-label">신호 수</div><div class="conf-bar"><div class="conf-fill" style="width:${Math.min(100,total)}%;background:${confColor}"></div></div><div class="conf-val" style="color:${confColor}">${total}회 ${confLabel}</div></div>
+    <div class="conf-bar-row"><div class="conf-label">승률</div><div class="conf-bar"><div class="conf-fill" style="width:${wr}%;background:${wr>=60?'#00e5a0':wr>=50?'#ffb830':'#ff3d5a'}"></div></div><div class="conf-val" style="color:${wr>=60?'#00e5a0':wr>=50?'#ffb830':'#ff3d5a'}">${wr.toFixed(1)}%</div></div>
+    <div class="conf-bar-row"><div class="conf-label">수익 팩터</div><div class="conf-bar"><div class="conf-fill" style="width:${Math.min(100,pf*33)}%;background:${pf>=1?'#00e5a0':'#ff3d5a'}"></div></div><div class="conf-val" style="color:${pf>=1?'#00e5a0':'#ff3d5a'}">${pf.toFixed(2)}</div></div>`;
+
+  // Equity curve
+  document.getElementById('chartPnl').style.display = 'block';
+  document.getElementById('chartPeriod').textContent = `분석 ${total}회 · 전체 발견 ${totalFound}회`;
+  setTimeout(() => drawEquity(result.equity, seed), 50);
+
+  // Symbol breakdown
+  document.getElementById('stratPnl').style.display = 'block';
+  const srEl = document.getElementById('stratResults');
+  srEl.innerHTML = '';
+  breakdowns.forEach(sb => {
+    const sbRet = (sb.balance-seed)/seed*100;
+    const c = sb.wr>=50?'var(--G)':'var(--R)';
+    srEl.innerHTML += `
+      <div class="sr">
+        <div class="sr-head">
+          <div class="sr-name">
+            <span class="stag">${sb.label}</span>
+            <span style="font-size:9px;color:var(--tx3)">(${sb.total}회 추출)</span>
+          </div>
+          <span style="font-size:12px;font-weight:700;color:${sbRet>=0?'var(--G)':'var(--R)'}">${sbRet>=0?'+':''}${sbRet.toFixed(2)}%</span>
+        </div>
+        <div class="sr-grid">
+          <div class="sr-item"><div class="sr-l">승률</div><div style="font-size:13px;font-weight:700;color:${c}">${sb.wr.toFixed(1)}%</div></div>
+          <div class="sr-item"><div class="sr-l">승/패</div><div style="font-size:13px;font-weight:700;color:var(--tx)">${sb.wins}W/${sb.losses}L</div></div>
+          <div class="sr-item"><div class="sr-l">평균익절</div><div style="font-size:13px;font-weight:700;color:var(--G)">+$${sb.avgW.toFixed(2)}</div></div>
+          <div class="sr-item"><div class="sr-l">평균손절</div><div style="font-size:13px;font-weight:700;color:var(--R)">-$${sb.avgL.toFixed(2)}</div></div>
+        </div>
+      </div>`;
+  });
+
+  // Trade table
+  document.getElementById('tradePnl').style.display = 'block';
+  document.getElementById('tradeCount').textContent = `총 ${total}건`;
+  const lev = +document.getElementById('lev').value || 5;
+  const tbody = document.getElementById('tradeBody');
+  tbody.innerHTML = '';
+  result.processed.slice().reverse().forEach(tr => {
+    const isW = tr.pnl > 0;
+    const pctDisp = (tr.pnlPct * lev * 100);
+    // 펀딩비 금액 계산
+    const fundingAmt = (tr.margin * lev * (tr.fundingPct||0)).toFixed(2);
+    tbody.innerHTML += `<tr>
+      <td style="color:var(--tx3)">${tr.idx}</td>
+      <td style="font-size:9px;font-weight:700;color:var(--O)">${tr.symbol.replace('USDT','')}</td>
+      <td style="color:var(--tx3)">${tfLabel(tr.tf)}</td>
+      <td class="${tr.dir==='long'?'td-l':'td-s'}">${tr.dir==='long'?'▲ L':'▼ S'}</td>
+      <td>${fmt(tr.entryPrice)}</td>
+      <td style="color:var(--R);font-size:10px">${fmt(tr.slPrice)}</td>
+      <td>${fmt(tr.exitPrice)}</td>
+      <td style="color:${tr.result==='TP'?'var(--G)':tr.result==='BE'?'var(--Y)':'var(--R)'};font-size:10px">${tr.result==='TP'?'✅ 익절':tr.result==='SL'?'❌ 손절':'➖ 본전'}</td>
+      <td class="${isW?'td-win':'td-loss'}">${isW?'+':''}${tr.pnl.toFixed(2)}</td>
+      <td class="${isW?'td-win':'td-loss'}">${isW?'+':''}${pctDisp.toFixed(2)}%</td>
+      <td style="color:var(--R);font-size:10px">-$${fundingAmt}</td>
+      <td style="color:var(--tx3);font-size:10px">${tr.holdHours}h</td>
+      <td style="color:var(--tx2)">$${tr.balAfter.toFixed(0)}</td>
+      <td style="color:var(--tx3);font-size:10px">${tr.rsiVal.toFixed(2)}</td>
+      <td style="color:var(--tx3);font-size:9px">${tr.time}</td>
+    </tr>`;
+  });
+
+  document.getElementById('emptyState').style.display = 'none';
+}
+
+// ════════════════════════════════
+// MAIN RUN
+// ════════════════════════════════
+async function runBacktest() {
+  const symbols = getSymbols();
+  if (!symbols.length) { showToast('종목을 하나 이상 선택해주세요.'); return; }
+  if (!activeTFs.size) { showToast('타임프레임을 선택해주세요.'); return; }
+
+  const btn = document.getElementById('rbtn');
+  btn.textContent = '⟳ 실행 중...'; btn.classList.add('running');
+  document.getElementById('progWrap').classList.add('show');
+
+  const seed   = +document.getElementById('seed').value    || 10000;
+  const betPct = +document.getElementById('betPct').value  || 10;
+  const lev    = +document.getElementById('lev').value     || 5;
+  const fee    = +document.getElementById('fee').value     || 0.055;
+  const maxSig = +document.getElementById('maxSig').value  || 100;
+  const period = document.getElementById('period').value   || '2y';
+
+  const cfg = {
+    rsiPeriod:   +document.getElementById('rsiPeriod').value   || 2,
+    rsiLong:     +document.getElementById('rsiLong').value     || 1.5,
+    rsiShort:    +document.getElementById('rsiShort').value    || 98.5,
+    slPct:       +document.getElementById('slPct').value       || 5,
+    trailPct:    +document.getElementById('trailPct').value    || 0.5,
+    fundingRate: +document.getElementById('fundingRate').value || 0.01,
+    bepTrail:    +document.getElementById('bepTrail').value    || 1,
+    lev,
+    fee,
+  };
+
+  let allTrades = []; const breakdowns = [];
+  const totalSteps = symbols.length * activeTFs.size;
+  let step = 0;
+
+  try {
+    for (const sym of symbols) {
+      const symLabel = sym.replace('USDT','');
+      for (const tf of activeTFs) {
+        setProgress(Math.round((step/totalSteps)*75),
+          `[${symLabel}] ${tfLabel(tf)} 데이터 로딩 중...`);
+
+        const candles = await fetchCandles(sym, tf, period, (cur, tot) => {
+          setProgress(
+            Math.round((step/totalSteps)*75) + Math.round((cur/tot)*(75/totalSteps)),
+            `[${symLabel}] ${tfLabel(tf)} 배치 ${cur}/${tot} 로딩 중...`
+          );
+        });
+
+        setProgress(Math.round((step/totalSteps)*75),
+          `[${symLabel}] ${tfLabel(tf)} ${candles.length.toLocaleString()}봉 — 신호 탐색 중...`);
+
+        const trades = backtest(candles, sym, tf, cfg, maxSig);
+        allTrades.push(...trades);
+
+        const sim = simulate(trades, seed, betPct, lev, fee);
+        breakdowns.push({
+          label: `${symLabel} ${tfLabel(tf)}`,
+          total: trades.length, ...sim
+        });
+
+        step++;
+        await sleep(50);
+      }
+    }
+
+    setProgress(90, '결과 계산 중...'); await sleep(100);
+
+    if (!allTrades.length) {
+      showToast('신호가 없습니다. RSI 기준값이나 기간을 조정해보세요.');
+      resetBtn(); return;
+    }
+
+    allTrades.sort((a,b) => new Date(a.time) - new Date(b.time));
+    const result = simulate(allTrades, seed, betPct, lev, fee);
+
+    setProgress(100, '완료!'); await sleep(300);
+    renderResults(result, seed, breakdowns, allTrades.length);
+
+  } catch(e) {
+    showToast('오류: ' + e.message);
+    console.error(e);
+  }
+  resetBtn();
+}
+
+// ════════════════════════════════
+// HELPERS
+// ════════════════════════════════
+function setProgress(pct, txt) {
+  document.getElementById('progFill').style.width = pct+'%';
+  document.getElementById('progTxt').textContent  = txt;
+}
+function resetBtn() {
+  const btn = document.getElementById('rbtn');
+  btn.textContent = '▶ RSI(2) 백테스트 실행';
+  btn.classList.remove('running');
+  document.getElementById('progWrap').classList.remove('show');
+}
+function fmt(n) { return n ? n.toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2}) : '--'; }
+function tfLabel(tf) { return {'1':'1m','3':'3m','5':'5m','15':'15m','30':'30m','60':'1H','240':'4H','D':'1D'}[tf]||tf; }
+function sleep(ms) { return new Promise(r => setTimeout(r,ms)); }
+
+let toastT;
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.opacity='1'; el.style.transform='translateX(-50%) translateY(0)';
+  clearTimeout(toastT);
+  toastT = setTimeout(()=>{ el.style.opacity='0'; el.style.transform='translateX(-50%) translateY(14px)'; }, 3000);
+}
+</script>
+</body>
+</html>
