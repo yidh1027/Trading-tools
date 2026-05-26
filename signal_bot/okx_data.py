@@ -28,8 +28,8 @@ SYMBOL_DISPLAY = {
     "DOGE-USDT-SWAP": "DOGEUSDT",
 }
 
-# AWS 전용 엔드포인트 (GitHub Actions 환경에서 차단 없음)
-BASE_URL = "https://aws.okx.com"
+# OKX 공개 API 엔드포인트
+BASE_URL = "https://www.okx.com"
 
 
 def fetch_klines(symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
