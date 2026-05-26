@@ -11,7 +11,7 @@ import sys
 import traceback
 from datetime import datetime, timezone
 
-from bybit_data import fetch_all, SYMBOLS, INTERVAL_MAP
+from okx_data import fetch_all, SYMBOLS, INTERVAL_MAP
 from indicators import add_indicators, is_valid
 from pattern1 import check_pattern1
 from pattern2 import check_pattern2
