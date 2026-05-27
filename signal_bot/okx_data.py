@@ -28,7 +28,7 @@ SYMBOL_DISPLAY = {
     "DOGE-USDT-SWAP": "DOGEUSDT",
 }
 
-# OKX 공개 API 엔드포인트
+# AWS 전용 엔드포인트 (GitHub Actions 환경에서 차단 없음)
 BASE_URL = "https://www.okx.com"
 
 
@@ -59,10 +59,11 @@ def fetch_klines(symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
             data = resp.json()
 
             if data.get("code") != "0":
-                raise ValueError(f"OKX API 오류: {data.get('msg')}")
+                raise ValueError(f"OKX API 오류: code={data.get('code')}, msg={data.get('msg')}")
 
             rows = data.get("data", [])
             if not rows:
+                print(f"[{symbol}][{interval}] 빈 데이터 응답: {str(data)[:200]}")
                 return pd.DataFrame()
 
             # OKX 응답 컬럼: ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm
