@@ -54,7 +54,9 @@ def fetch_klines(symbol: str, interval: str, limit: int = 200) -> pd.DataFrame:
 
     for attempt in range(3):
         try:
+            print(f"[{symbol}][{interval}] 요청 URL: {url} | params: {params}")
             resp = requests.get(url, params=params, timeout=10)
+            print(f"[{symbol}][{interval}] 응답 코드: {resp.status_code} | 내용: {resp.text[:200]}")
             resp.raise_for_status()
             data = resp.json()
 
