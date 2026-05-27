@@ -11,7 +11,7 @@ import sys
 import traceback
 from datetime import datetime, timezone
 
-from okx_data import fetch_all, SYMBOLS, INTERVAL_MAP
+from okx_data import fetch_all, SYMBOL_DISPLAY, INTERVAL_MAP
 from indicators import add_indicators, is_valid
 from pattern1 import check_pattern1
 from pattern2 import check_pattern2
@@ -41,7 +41,7 @@ def run():
         print(f"\n[타임프레임: {tf}] 데이터 수집 중...")
         data_map = fetch_all(tf)
 
-        for symbol in SYMBOLS:
+        for symbol in SYMBOL_DISPLAY.values():
             if symbol not in data_map:
                 print(f"  [{symbol}] 데이터 없음, 건너뜀")
                 continue
