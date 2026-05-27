@@ -3,7 +3,7 @@ name: MA Strategy Signal Bot
 on:
   schedule:
     # 매 15분마다 실행 (UTC 기준)
-    - cron: '0,15,30,45 * * * *'
+    - cron: "0,15,30,45 * * * *"
   # 수동 실행도 가능
   workflow_dispatch:
 
