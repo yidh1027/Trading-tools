@@ -124,7 +124,7 @@ footer{text-align:center;padding:24px 0;border-top:1px solid var(--ln2);font-siz
       <div class="card-arrow">→</div>
     </a>
 
-    <!-- 일목균형표 (준비중) -->
+    <!-- 일목균형표 -->
     <a class="card card-ichi" href="./rsi-backtest/#ichi" onclick="return false">
       <div class="card-icon">☁️</div>
       <div class="card-tag tag-ichi">일목균형표</div>
@@ -142,7 +142,7 @@ footer{text-align:center;padding:24px 0;border-top:1px solid var(--ln2);font-siz
     </a>
 
     <!-- MA + 일목균형표 전략 -->
-    <a class="card" href="./ma-backtest/" style="--hover-color:#00d4ff" onmouseover="this.style.borderColor='#00d4ff'" onmouseout="this.style.borderColor=''">
+    <a class="card" href="./ma-backtest/" onmouseover="this.style.borderColor='#00d4ff'" onmouseout="this.style.borderColor=''">
       <div class="card-icon">📈</div>
       <div class="card-tag" style="background:rgba(0,212,255,.1);color:#00d4ff;border:1px solid rgba(0,212,255,.2)">MA + 일목균형표</div>
       <div class="card-title">MA + 일목균형표 전략</div>
@@ -155,6 +155,24 @@ footer{text-align:center;padding:24px 0;border-top:1px solid var(--ln2);font-siz
         <span class="meta-item">5m · 1H · 4H · 1D</span>
         <span class="meta-item">3가지 패턴</span>
         <span class="meta-item">롱 전용</span>
+      </div>
+      <div class="card-arrow">→</div>
+    </a>
+
+    <!-- RSI + CRSI 숏 전략 -->
+    <a class="card" href="./rsi-crsi-backtest/" onmouseover="this.style.borderColor='#ff4444'" onmouseout="this.style.borderColor=''">
+      <div class="card-icon">📉</div>
+      <div class="card-tag" style="background:rgba(255,68,68,.1);color:#ff4444;border:1px solid rgba(255,68,68,.2)">RSI + CRSI</div>
+      <div class="card-title">RSI + CRSI 숏 전략</div>
+      <div class="card-desc">
+        RSI(14) ≥ 70 &amp; CRSI ≥ 85 구간에서<br>
+        RSI 증가 + CRSI 하락 시 숏 진입<br>
+        진입 후 3캔들 하락 확률 분석
+      </div>
+      <div class="card-meta">
+        <span class="meta-item">15m · 30m</span>
+        <span class="meta-item">BTC · ETH · SOL · XRP · DOGE</span>
+        <span class="meta-item">숏 전용</span>
       </div>
       <div class="card-arrow">→</div>
     </a>
