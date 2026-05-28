@@ -161,7 +161,7 @@
       <div class="section-title">📋 신호 발생 내역 (최근 50개)</div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>진입 시각</th><th>RSI</th><th>CRSI</th><th>진입가</th><th>캔들1</th><th>캔들2</th><th>캔들3</th><th>결과</th></tr></thead>
+          <thead><tr><th>신호 시각</th><th>진입 시각</th><th>RSI</th><th>CRSI</th><th>진입가</th><th>캔들1</th><th>캔들2</th><th>캔들3</th><th>결과</th></tr></thead>
           <tbody id="signalTable"></tbody>
         </table>
       </div>
@@ -220,15 +220,17 @@ function percentRank(arr, period) {
 }
 
 function calcCRSI(closes, rsiLen, updownLen, rocLen) {
+  // 트레이딩뷰 정확한 공식:
+  // CRSI = (RSI(close, rsiLen) + RSI(streak, updownLen) + PercentRank(close, rocLen)) / 3
   const rsi3  = calcRSI(closes, rsiLen);
   const ud    = calcUpDown(closes);
   const udRsi = calcRSI(ud, updownLen);
-  const roc   = calcROC(closes, rocLen);
-  const rocPR = percentRank(roc, rocLen);
+  // PercentRank: 현재 종가가 과거 rocLen봉의 종가 중 몇 번째 백분위인지
+  const prank = percentRank(closes, rocLen);
   const crsi  = new Array(closes.length).fill(null);
   for (let i = 0; i < closes.length; i++)
-    if (rsi3[i]!==null && udRsi[i]!==null && rocPR[i]!==null)
-      crsi[i] = (rsi3[i] + udRsi[i] + rocPR[i]) / 3;
+    if (rsi3[i]!==null && udRsi[i]!==null && prank[i]!==null)
+      crsi[i] = (rsi3[i] + udRsi[i] + prank[i]) / 3;
   return crsi;
 }
 
@@ -237,6 +239,10 @@ async function fetchAllCandles(symbol, bar, months) {
   // 목표 시작 시각 (현재 - months개월)
   const now = Date.now();
   const targetStart = now - months * 30 * 24 * 60 * 60 * 1000;
+  // 지표 계산용 워밍업: 추가 200봉 분량의 시간을 더 앞에서 수집
+  const intervalMs = bar === '15m' ? 15*60*1000 : bar === '30m' ? 30*60*1000 :
+                     bar === '1H'  ? 60*60*1000 : bar === '4H' ? 4*60*60*1000 : 24*60*60*1000;
+  const warmupStart = targetStart - 200 * intervalMs;
 
   let allRows = [];
   let before = null; // 이 타임스탬프 이전 데이터 요청
@@ -276,8 +282,8 @@ async function fetchAllCandles(symbol, bar, months) {
     const oldestTs = +rows[rows.length - 1][0];
     before = oldestTs.toString();
 
-    // 목표 시작 시각 도달 시 종료
-    if (oldestTs <= targetStart) break;
+    // 워밍업 시작 시각 도달 시 종료
+    if (oldestTs <= warmupStart) break;
 
     // 짧은 딜레이 (API 레이트 리밋)
     await new Promise(r => setTimeout(r, 120));
@@ -340,7 +346,8 @@ async function runBacktest() {
         const e=candles[i+1], d1=candles[i+1], d2=candles[i+2], d3=candles[i+3];
         if (!e||!d2||!d3) continue;
         signals.push({
-          time: candles[i].ts,
+          signalTime: candles[i].ts,   // 신호 감지 캔들 시각
+          entryTime:  candles[i+1].ts, // 실제 진입 캔들 시각
           rsi:  r1.toFixed(2), crsi: c1.toFixed(2),
           entryPrice: e.open.toFixed(4),
           dir1: d1.close<d1.open?'▼':'▲',
@@ -437,8 +444,8 @@ function renderResults(signals, totalCandles, months) {
   document.getElementById('signalTable').innerHTML = recent.map(s=>{
     const allDown=s.dir1==='▼'&&s.dir2==='▼'&&s.dir3==='▼';
     const result=allDown?'<span class="tag-dn">전부 하락</span>':s.dir1==='▼'?'<span style="color:var(--accent2)">일부 하락</span>':'<span class="tag-up">즉시 상승</span>';
-    const ts=s.time.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
-    return `<tr><td>${ts}</td><td>${s.rsi}</td><td>${s.crsi}</td><td>${s.entryPrice}</td>
+    const fmt=t=>t.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    return `<tr><td>${fmt(s.signalTime)}</td><td style="color:var(--accent)">${fmt(s.entryTime)}</td><td>${s.rsi}</td><td>${s.crsi}</td><td>${s.entryPrice}</td>
       <td class="${s.dir1==='▼'?'tag-dn':'tag-up'}">${s.dir1}</td>
       <td class="${s.dir2==='▼'?'tag-dn':'tag-up'}">${s.dir2}</td>
       <td class="${s.dir3==='▼'?'tag-dn':'tag-up'}">${s.dir3}</td>
