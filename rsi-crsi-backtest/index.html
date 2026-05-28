@@ -171,21 +171,31 @@
 
 <script>
 // ── 지표 계산 ──────────────────────────────────────────
+// Wilder's RMA (= pandas ewm alpha=1/len, adjust=False) → 트레이딩뷰와 동일
 function calcRSI(arr, len) {
   const out = new Array(arr.length).fill(null);
   if (arr.length <= len) return out;
-  let ag = 0, al = 0;
-  for (let i = 1; i <= len; i++) {
+
+  const gains = new Array(arr.length).fill(0);
+  const losses = new Array(arr.length).fill(0);
+  for (let i = 1; i < arr.length; i++) {
     const d = arr[i] - arr[i-1];
-    if (d >= 0) ag += d; else al -= d;
+    gains[i]  = d > 0 ? d : 0;
+    losses[i] = d < 0 ? -d : 0;
   }
+
+  // 첫 번째 RMA값: 단순평균 (SMA 시드)
+  let ag = 0, al = 0;
+  for (let i = 1; i <= len; i++) { ag += gains[i]; al += losses[i]; }
   ag /= len; al /= len;
-  out[len] = al === 0 ? 100 : 100 - 100/(1+ag/al);
-  for (let i = len+1; i < arr.length; i++) {
-    const d = arr[i] - arr[i-1];
-    ag = (ag*(len-1) + Math.max(d,0)) / len;
-    al = (al*(len-1) + Math.max(-d,0)) / len;
-    out[i] = al === 0 ? 100 : 100 - 100/(1+ag/al);
+  out[len] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
+
+  // 이후: Wilder smoothing alpha = 1/len
+  const alpha = 1 / len;
+  for (let i = len + 1; i < arr.length; i++) {
+    ag = alpha * gains[i]  + (1 - alpha) * ag;
+    al = alpha * losses[i] + (1 - alpha) * al;
+    out[i] = al === 0 ? 100 : 100 - 100 / (1 + ag / al);
   }
   return out;
 }
