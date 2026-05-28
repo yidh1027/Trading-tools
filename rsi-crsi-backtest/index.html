@@ -220,14 +220,22 @@ function percentRank(arr, period) {
 }
 
 function calcCRSI(closes, rsiLen, updownLen, rocLen) {
-  // 트레이딩뷰 정확한 공식:
-  // CRSI = (RSI(close, rsiLen) + RSI(streak, updownLen) + PercentRank(close, rocLen)) / 3
+  // 정확한 ConnorsRSI 공식:
+  // CRSI = (RSI(close, 3) + RSI(streak, 2) + PercentRank(percentMove, 100)) / 3
+  // percentMove = (close - close[1]) / close[1] * 100  (1봉 변동률)
   const rsi3  = calcRSI(closes, rsiLen);
   const ud    = calcUpDown(closes);
   const udRsi = calcRSI(ud, updownLen);
-  // PercentRank: 현재 종가가 과거 rocLen봉의 종가 중 몇 번째 백분위인지
-  const prank = percentRank(closes, rocLen);
-  const crsi  = new Array(closes.length).fill(null);
+
+  // 1봉 변동률 계산
+  const pctMove = new Array(closes.length).fill(null);
+  for (let i = 1; i < closes.length; i++)
+    pctMove[i] = closes[i-1] !== 0 ? ((closes[i] - closes[i-1]) / closes[i-1]) * 100 : 0;
+
+  // PercentRank: 현재 1봉 변동률이 과거 rocLen봉 변동률 중 몇 번째 백분위인지
+  const prank = percentRank(pctMove, rocLen);
+
+  const crsi = new Array(closes.length).fill(null);
   for (let i = 0; i < closes.length; i++)
     if (rsi3[i]!==null && udRsi[i]!==null && prank[i]!==null)
       crsi[i] = (rsi3[i] + udRsi[i] + prank[i]) / 3;
