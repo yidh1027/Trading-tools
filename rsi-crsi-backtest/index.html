@@ -366,6 +366,45 @@ async function runBacktest() {
     }
 
     setProgress(99, '📊 결과 집계 중...');
+
+    // ── 디버그: 5/23~5/24 구간 값 출력 ──
+    const debugRows = [];
+    const targetDate = new Date('2026-05-23T14:00:00Z'); // UTC 14:00 = KST 23:00
+    for (let i = 0; i < candles.length; i++) {
+      const diff = Math.abs(candles[i].ts - targetDate);
+      if (diff < 2 * 60 * 60 * 1000) { // ±2시간 범위
+        debugRows.push({
+          ts: candles[i].ts,
+          close: closes[i],
+          rsi: rsi14[i] !== null ? rsi14[i].toFixed(2) : 'null',
+          crsi: crsi[i] !== null ? crsi[i].toFixed(2) : 'null',
+        });
+      }
+    }
+    console.table(debugRows);
+    // 화면에도 출력
+    const debugHtml = `
+      <div class="patterns-section" style="margin-bottom:28px">
+        <div class="section-title">🔬 디버그: 5/23~24 구간 RSI/CRSI 값</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>시각 (KST)</th><th>종가</th><th>RSI(14)</th><th>CRSI</th></tr></thead>
+            <tbody>
+              ${debugRows.map(r => `
+                <tr>
+                  <td>${r.ts.toLocaleString('ko-KR',{month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+                  <td>${r.close.toFixed(2)}</td>
+                  <td style="color:${+r.rsi>=70?'var(--red)':'var(--text)'}">${r.rsi}</td>
+                  <td style="color:${+r.crsi>=85?'var(--red)':'var(--text)'}">${r.crsi}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+    document.getElementById('results').insertAdjacentHTML('afterbegin', debugHtml);
+    // ── 디버그 끝 ──
     renderResults(signals, candles.length, months);
     setProgress(100, '✅ 완료!');
     setTimeout(()=>{ progressBox.style.display='none'; }, 500);
