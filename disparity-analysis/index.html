@@ -85,7 +85,11 @@
   <div class="config-panel">
     <div class="config-title">⚙ 분석 설정</div>
     <div class="cond-box">
-      <strong>필수 조건</strong> ① RSI14≥<span id="cRsi">70</span> &amp; CRSI≥<span id="cCrsi">85</span> · ② RSI↑+CRSI↓ · ③ 구름대 위 · ④ 저가&gt;MA7 · ⑤ 고가≥BB상단<br>
+      <strong>필수 조건 (4개 모두 충족 시 신호)</strong><br>
+      ① 고가 ≥ 볼린저밴드 상단 (BB 상단 터치)<br>
+      ② 시초가 &gt; 선행스팬1·2 (구름대 위)<br>
+      ③ 저가 &gt; MA7 (MA7 위에 이격)<br>
+      ④ RSI14 ≥ <span id="cRsi">70</span> &amp; CRSI ≥ <span id="cCrsi">85</span> (종가 기준) → 다음 캔들 시초가 숏 진입<br>
       <span style="color:var(--accent2)">이격도 = (종가-MA7)/MA7×100</span> ·
       <span style="color:var(--red)">최대 하락폭 = 진입가 대비 첫 양봉 전까지 최저점 하락률</span>
     </div>
@@ -117,6 +121,15 @@
   </div>
 
   <div id="results" class="hidden">
+    <div class="section" style="border-color:var(--accent2)">
+      <div class="section-title">🔬 신호 누락 디버그 (BTC 기준)</div>
+      <div class="section-sub">특정 시각 캔들이 왜 신호로 안 잡혔는지 조건별로 확인합니다. 분석 실행 후 사용하세요.</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:16px">
+        <input type="text" id="debugTime" placeholder="2026-05-26 23:15" style="flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 14px;outline:none">
+        <button onclick="debugCandle()" style="background:var(--accent2);color:#000;border:none;border-radius:6px;padding:10px 20px;font-family:var(--mono);font-weight:700;cursor:pointer;font-size:13px">조건 확인</button>
+      </div>
+      <div id="debugResult"></div>
+    </div>
     <div class="tabs" id="tabs"></div>
     <div id="panels"></div>
   </div>
@@ -210,11 +223,12 @@ function analyzeCoin(candles,months,rsiThr,crsiThr){
   const signals=[];
   for(let i=300;i<candles.length-1;i++){
     if(candles[i].ts<target)continue;
-    const r0=rsi[i-1],r1=rsi[i],c0=crsi[i-1],c1=crsi[i];
-    if(r0===null||r1===null||c0===null||c1===null)continue;
+    const r1=rsi[i],c1=crsi[i];
+    if(r1===null||c1===null)continue;
     if(ma7[i]===null||bb[i]===null||s1[i]===null||s2[i]===null)continue;
     const cd=candles[i];
-    if(r1>=rsiThr&&c1>=crsiThr&&r1>r0&&c1<c0&&cd.open>s1[i]&&cd.open>s2[i]&&cd.low>ma7[i]&&cd.high>=bb[i]){
+    // 조건1: BB상단 터치(고가≥상단) / 조건2: 구름대 위(시초가>스팬1,2) / 조건3: MA7 위(저가>MA7) / 조건4: RSI14≥70 & CRSI≥85
+    if(r1>=rsiThr&&c1>=crsiThr&&cd.open>s1[i]&&cd.open>s2[i]&&cd.low>ma7[i]&&cd.high>=bb[i]){
       const disp=(cd.close-ma7[i])/ma7[i]*100;
       const entry=candles[i+1];
       if(!entry)continue;
@@ -233,7 +247,50 @@ function analyzeCoin(candles,months,rsiThr,crsiThr){
       });
     }
   }
-  return {signals, dataMonths:(now-candles[0].ts)/(30*864e5)};
+  return {signals, dataMonths:(now-candles[0].ts)/(30*864e5), _debug:{candles,rsi,crsi,ma7,bb,s1,s2}};
+}
+
+// 특정 시각 캔들의 조건별 통과 여부 디버그
+let DEBUG_DATA=null;
+function debugCandle(){
+  if(!DEBUG_DATA){alert('먼저 분석을 실행하세요');return;}
+  const input=document.getElementById('debugTime').value.trim();
+  if(!input){alert('시각을 입력하세요 (예: 2026-05-26 23:15)');return;}
+  // 입력 파싱 (KST 기준)
+  const m=input.match(/(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
+  if(!m){alert('형식: 2026-05-26 23:15');return;}
+  const targetMs=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4]-9,+m[5])).getTime(); // KST→UTC
+  const {candles,rsi,crsi,ma7,bb,s1,s2}=DEBUG_DATA;
+  let idx=-1, best=Infinity;
+  for(let i=0;i<candles.length;i++){
+    const d=Math.abs(candles[i].ts-targetMs);
+    if(d<best){best=d;idx=i;}
+  }
+  if(idx<1){alert('해당 시각 캔들을 찾을 수 없습니다');return;}
+  const i=idx, cd=candles[i];
+  const r1=rsi[i],c1=crsi[i];
+  const rsiThr=+document.getElementById('rsiThresh').value;
+  const crsiThr=+document.getElementById('crsiThresh').value;
+  const rows=[
+    ['찾은 캔들 시각', new Date(cd.ts).toLocaleString('ko-KR'), ''],
+    ['시초가 / 종가', `${cd.open} / ${cd.close}`, ''],
+    ['고가 / 저가', `${cd.high} / ${cd.low}`, ''],
+    ['─────', '─────', ''],
+    [`④ RSI14 ≥ ${rsiThr}`, r1!==null?r1.toFixed(2):'null', r1>=rsiThr?'✅':'❌'],
+    [`④ CRSI ≥ ${crsiThr}`, c1!==null?c1.toFixed(2):'null', c1>=crsiThr?'✅':'❌'],
+    ['② 시초가 > 선행스팬1', `${cd.open} > ${s1[i]?.toFixed(1)}`, cd.open>s1[i]?'✅':'❌'],
+    ['② 시초가 > 선행스팬2', `${cd.open} > ${s2[i]?.toFixed(1)}`, cd.open>s2[i]?'✅':'❌'],
+    ['③ 저가 > MA7', `${cd.low} > ${ma7[i]?.toFixed(1)}`, cd.low>ma7[i]?'✅':'❌'],
+    ['① 고가 ≥ BB상단', `${cd.high} ≥ ${bb[i]?.toFixed(1)}`, cd.high>=bb[i]?'✅':'❌'],
+  ];
+  const allPass = r1>=rsiThr&&c1>=crsiThr&&cd.open>s1[i]&&cd.open>s2[i]&&cd.low>ma7[i]&&cd.high>=bb[i];
+  let html=`<table style="min-width:auto"><tbody>`;
+  for(const [k,v,s] of rows){
+    html+=`<tr><td style="text-align:left;color:var(--text2)">${k}</td><td style="text-align:right">${v}</td><td style="text-align:center;width:40px">${s}</td></tr>`;
+  }
+  html+=`</tbody></table><div style="margin-top:14px;padding:12px;border-radius:8px;background:${allPass?'rgba(0,204,102,.1)':'rgba(255,68,68,.1)'};color:${allPass?'var(--green)':'var(--red)'};font-family:var(--mono);font-weight:700;text-align:center">
+    ${allPass?'✅ 모든 조건 통과 — 신호 발생해야 함':'❌ 일부 조건 미충족 — 신호에서 제외됨 (위 ❌ 항목 확인)'}</div>`;
+  document.getElementById('debugResult').innerHTML=html;
 }
 
 async function runAnalysis(){
@@ -256,6 +313,7 @@ async function runAnalysis(){
       if(candles.length<320){all.push({coin,insufficient:true,n:candles.length});continue;}
       const res=analyzeCoin(candles,months,rsiThr,crsiThr);
       all.push({coin,insufficient:false,...res});
+      if(coin.name==='BTC' && res._debug) DEBUG_DATA=res._debug;
     }
     setP(95,'📊 렌더링 중...');
     render(all);
