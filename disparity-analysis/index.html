@@ -130,7 +130,6 @@
       </div>
       <div id="debugResult"></div>
     </div>
-    <div id="combinedSummary"></div>
     <div class="tabs" id="tabs"></div>
     <div id="panels"></div>
   </div>
@@ -327,9 +326,6 @@ async function runAnalysis(){
 function setP(p,m){document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressText').textContent=m;}
 
 function render(all){
-  // 전체 코인 합산 요약 (컷오프 판단용)
-  document.getElementById('combinedSummary').innerHTML=renderCombined(all);
-
   let tabHtml='';
   all.forEach((c,idx)=>{
     const cnt=c.insufficient?'!':c.signals.length;
@@ -344,67 +340,6 @@ function render(all){
   document.getElementById('panels').innerHTML=panelHtml;
 }
 
-// 전체 코인 합산: 이격 구간별 전체 신호 / 즉시반등 / 실패율 / 평균하락폭
-function renderCombined(all){
-  const agg=BUCKETS.map(()=>({total:0,zero:0,dropSum:0,downSum:0}));
-  let grandTotal=0, grandZero=0;
-  for(const c of all){
-    if(c.insufficient)continue;
-    for(const s of c.signals){
-      let bi=BUCKETS.findIndex(b=>s.disp>b.min&&s.disp<=b.max);
-      if(bi===-1)bi=s.disp<=0.5?0:BUCKETS.length-1;
-      agg[bi].total++;
-      agg[bi].dropSum+=s.maxDrop;
-      agg[bi].downSum+=s.downCount;
-      if(s.downCount===0)agg[bi].zero++;
-      grandTotal++;
-      if(s.downCount===0)grandZero++;
-    }
-  }
-  if(grandTotal===0)return '<div class="insufficient-msg">집계할 신호가 없습니다.</div>';
-
-  let html=`
-  <div class="section" style="border-color:var(--accent2)">
-    <div class="section-title">🎯 전체 코인 합산 — 이격 구간별 실패율 (컷오프 판단)</div>
-    <div class="section-sub">6개 코인의 모든 신호를 합산했습니다 (표본 ${grandTotal}건, 즉시반등 ${grandZero}건).<br>
-    <b>실패율</b>(즉시 반등 비율)이 낮고 <b>평균 하락폭</b>이 큰 구간이 좋은 진입 구간입니다.</div>
-    <div class="table-wrap">
-      <table>
-        <thead><tr><th>이격 구간</th><th>전체 신호</th><th>즉시반등(0캔들)</th><th>실패율</th><th>평균 하락 지속</th><th>평균 최대 하락폭</th></tr></thead>
-        <tbody>`;
-  for(let bi=0;bi<BUCKETS.length;bi++){
-    const a=agg[bi];
-    const failRate=a.total>0?(a.zero/a.total*100):0;
-    const avgDrop=a.total>0?(a.dropSum/a.total):0;
-    const avgDown=a.total>0?(a.downSum/a.total):0;
-    const failCls=failRate>=50?'down-pos':failRate<=25?'down-neg':'';
-    html+=`<tr>
-      <td style="text-align:left;font-weight:700">${BUCKETS[bi].label}</td>
-      <td>${a.total}</td>
-      <td>${a.zero}</td>
-      <td class="${failCls}" style="font-weight:700">${a.total>0?failRate.toFixed(0)+'%':'-'}</td>
-      <td>${a.total>0?avgDown.toFixed(1)+' 캔들':'-'}</td>
-      <td class="down-pos">${a.total>0?avgDrop.toFixed(2)+'%':'-'}</td>
-    </tr>`;
-  }
-  html+=`</tbody></table></div>`;
-
-  // 인사이트 자동 도출
-  let bestCut={bi:-1,score:-1};
-  for(let bi=0;bi<BUCKETS.length;bi++){
-    if(agg[bi].total>=5){
-      const failRate=agg[bi].zero/agg[bi].total*100;
-      const score=100-failRate; // 실패율 낮을수록 높은 점수
-      if(score>bestCut.score)bestCut={bi,score,failRate};
-    }
-  }
-  if(bestCut.bi>=0){
-    html+=`<div class="note">💡 표본 5건 이상 구간 중 <b style="color:var(--green)">${BUCKETS[bestCut.bi].label}</b> 구간의 실패율이 ${bestCut.failRate.toFixed(0)}%로 가장 낮습니다.
-    이격 구간이 커질수록 실패율이 단계적으로 낮아진다면, 그 경계를 컷오프로 잡는 것이 통계적으로 유리합니다. 단, 표본이 적은 구간은 신뢰도가 낮으니 신호 수를 함께 확인하세요.</div>`;
-  }
-  html+=`</div>`;
-  return html;
-}
 
 function switchTab(idx){
   document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
@@ -491,10 +426,36 @@ function renderPanel(c){
       <div class="pct" style="color:${failRate>=40?'var(--red)':'var(--text2)'};font-weight:700">실패율 ${total>0?failRate.toFixed(0)+'%':'-'}</div>
     </div>`;
   }
-  html+=`</div>
-    <div class="note">💡 <b>실패율</b> = 해당 이격 구간 전체 신호 중 즉시 반등(0캔들) 비율 ·
-    실패율이 낮은 구간으로 갈수록 신호 신뢰도가 높습니다. 예) ≤0.5% 실패율이 70%인데 ≥1.5% 실패율이 10%라면, 이격 1% 이상만 진입하는 게 유리합니다.</div>
-  </div>`;
+  html+=`</div>`;
+  // 이 코인만의 컷오프 인사이트 자동 도출 (누적 실패율 비교)
+  // 각 이격 하한선 이상에서의 실패율을 계산해 가장 낮은 지점 추천
+  const cutCandidates=[0.5, 0.75, 1.0, 1.5];
+  let cutInsight='';
+  const validCuts=[];
+  for(const cut of cutCandidates){
+    const above=zeroSigs.filter(s=>s.disp>=cut).length;
+    const aboveTotal=sigs.filter(s=>s.disp>=cut).length;
+    if(aboveTotal>=3){ // 표본 3건 이상만
+      validCuts.push({cut, failRate:above/aboveTotal*100, total:aboveTotal});
+    }
+  }
+  if(validCuts.length>0){
+    // 전체 실패율
+    const allFail=zeroSigs.length/sigs.length*100;
+    let best=validCuts.reduce((a,b)=>b.failRate<a.failRate?b:a, {failRate:Infinity});
+    cutInsight=`<div class="note" style="border-left:3px solid var(--green)">
+      🎯 <b>${c.coin.name} 컷오프 분석</b><br>
+      전체 신호 실패율: <b>${allFail.toFixed(0)}%</b> (${zeroSigs.length}/${sigs.length})<br>`;
+    for(const v of validCuts){
+      const isBest=v.cut===best.cut;
+      cutInsight+=`이격 ${v.cut}% 이상만: 실패율 <b style="color:${isBest?'var(--green)':'var(--text)'}">${v.failRate.toFixed(0)}%</b> (표본 ${v.total}건)${isBest?' ⭐':''}<br>`;
+    }
+    cutInsight+=`<span style="color:var(--text2)">⭐ 표시가 ${c.coin.name}의 실패율이 가장 낮은 컷오프입니다. 단, 표본이 줄면 신뢰도도 낮아지니 표본 수를 함께 보세요.</span></div>`;
+  } else {
+    cutInsight=`<div class="note">신호 표본이 부족해 ${c.coin.name}의 컷오프를 판단하기 어렵습니다. 데이터 기간을 늘려보세요.</div>`;
+  }
+  html+=cutInsight;
+  html+=`</div>`;
 
   html+=`
   <div class="section">
