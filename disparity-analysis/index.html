@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>이격도 분포 분석 · 숏 신호 검증</title>
+<title>이격도 분포 분석 · 코인별 상세</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
   :root{
     --bg:#0a0a0f; --surface:#12121a; --surface2:#1a1a26; --border:#2a2a3a;
-    --accent:#ff4444; --accent2:#ff8800; --green:#00cc66; --red:#ff4444; --blue:#3d8bff;
+    --accent:#ff4444; --accent2:#ffb830; --green:#00cc66; --red:#ff4444; --blue:#3d8bff;
     --text:#e8e8f0; --text2:#888899;
     --mono:'Space Mono',monospace; --sans:'Noto Sans KR',sans-serif;
   }
@@ -16,92 +16,87 @@
   body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh}
   body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(255,68,68,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(255,68,68,.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
   .container{max-width:1200px;margin:0 auto;padding:40px 20px;position:relative;z-index:1}
-  header{margin-bottom:40px;border-bottom:1px solid var(--border);padding-bottom:28px}
+  header{margin-bottom:32px;border-bottom:1px solid var(--border);padding-bottom:24px}
   .header-tag{font-family:var(--mono);font-size:11px;color:var(--accent);letter-spacing:3px;text-transform:uppercase;margin-bottom:12px}
-  h1{font-size:30px;font-weight:700;letter-spacing:-1px;line-height:1.2;margin-bottom:8px}
+  h1{font-size:28px;font-weight:700;letter-spacing:-1px;line-height:1.2;margin-bottom:8px}
   h1 span{color:var(--accent)}
-  .subtitle{color:var(--text2);font-size:14px;font-weight:300;line-height:1.7}
-  .config-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:24px}
-  .config-title{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:2px;text-transform:uppercase;margin-bottom:18px}
-  .cond-box{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:16px 20px;margin-bottom:20px;font-size:13px;line-height:1.9;color:var(--text2)}
+  .subtitle{color:var(--text2);font-size:13px;font-weight:300;line-height:1.7}
+  .config-panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
+  .config-title{font-family:var(--mono);font-size:11px;color:var(--text2);letter-spacing:2px;text-transform:uppercase;margin-bottom:16px}
+  .cond-box{background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:14px 18px;margin-bottom:18px;font-size:12px;line-height:1.9;color:var(--text2)}
   .cond-box strong{color:var(--accent);font-family:var(--mono)}
-  .config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:16px;margin-bottom:20px}
+  .config-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;margin-bottom:18px}
   .config-item label{display:block;font-size:11px;color:var(--text2);font-family:var(--mono);letter-spacing:1px;margin-bottom:8px;text-transform:uppercase}
   .config-item select,.config-item input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:10px 14px;outline:none;appearance:none}
   .config-item select:focus,.config-item input:focus{border-color:var(--accent)}
-  .run-btn{width:100%;background:var(--accent);color:white;border:none;border-radius:8px;padding:16px;font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .2s}
+  .run-btn{width:100%;background:var(--accent);color:white;border:none;border-radius:8px;padding:15px;font-family:var(--mono);font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .2s}
   .run-btn:hover{background:#ff2222;transform:translateY(-1px)}
   .run-btn:disabled{background:var(--border);cursor:not-allowed;transform:none}
-  .progress-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px 28px;margin-bottom:24px;display:none}
+  .progress-box{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:18px 24px;margin-bottom:24px;display:none}
   .progress-bar-wrap{background:var(--surface2);border-radius:4px;height:4px;margin:12px 0;overflow:hidden}
   .progress-bar{height:100%;background:var(--accent);border-radius:4px;transition:width .3s;width:0%}
   .progress-text{font-family:var(--mono);font-size:12px;color:var(--text2)}
-  .error-box{background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.3);border-radius:8px;padding:16px 20px;color:var(--red);font-size:13px;margin-bottom:20px;display:none;font-family:var(--mono)}
-  .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:28px;margin-bottom:24px}
+  .error-box{background:rgba(255,68,68,.08);border:1px solid rgba(255,68,68,.3);border-radius:8px;padding:14px 18px;color:var(--red);font-size:13px;margin-bottom:20px;display:none;font-family:var(--mono)}
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:24px}
+  .tab{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:12px 20px;font-family:var(--mono);font-size:13px;font-weight:700;color:var(--text2);cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:8px}
+  .tab:hover{border-color:var(--accent2);color:var(--text)}
+  .tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+  .tab .badge{font-size:10px;background:rgba(255,255,255,.15);border-radius:10px;padding:2px 8px}
+  .tab.insufficient{opacity:.5}
+  .coin-panel{display:none}
+  .coin-panel.active{display:block}
+  .section{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:24px}
   .section-title{font-family:var(--mono);font-size:12px;color:var(--text);letter-spacing:1px;margin-bottom:6px;font-weight:700}
-  .section-sub{font-size:12px;color:var(--text2);margin-bottom:20px}
+  .section-sub{font-size:12px;color:var(--text2);margin-bottom:18px;line-height:1.6}
+  .summary-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px}
+  .summary-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center}
+  .summary-card.hl{border-color:var(--accent)}
+  .summary-card .label{font-family:var(--mono);font-size:10px;color:var(--text2);letter-spacing:1px;text-transform:uppercase;margin-bottom:8px}
+  .summary-card .value{font-family:var(--mono);font-size:24px;font-weight:700}
+  .summary-card .value.red{color:var(--red)}
+  .summary-card .value.orange{color:var(--accent2)}
+  .dist-mini{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:8px}
+  .dist-cell{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 8px;text-align:center}
+  .dist-cell .range{font-family:var(--mono);font-size:10px;color:var(--text2);margin-bottom:6px}
+  .dist-cell .cnt{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--text)}
+  .dist-cell .pct{font-family:var(--mono);font-size:10px;color:var(--text2);margin-top:2px}
+  .dist-cell .down{font-size:10px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)}
   .table-wrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;min-width:680px}
-  th{text-align:center;padding:11px 10px;color:var(--text2);font-size:10px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
-  th.coin-col,td.coin-col{text-align:left}
-  td{padding:11px 10px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text);text-align:center;white-space:nowrap}
+  table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12px;min-width:760px}
+  th{text-align:center;padding:11px 8px;color:var(--text2);font-size:10px;letter-spacing:.5px;text-transform:uppercase;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.04);color:var(--text);text-align:center;white-space:nowrap}
   tr:hover td{background:var(--surface2)}
-  .coin-name{font-weight:700;color:var(--text)}
-  .cnt-strong{color:var(--accent);font-weight:700}
-  .pct-bar-cell{position:relative}
-  .pct-val{position:relative;z-index:1}
-  .heat0{background:transparent}
-  .heat1{background:rgba(255,68,68,.08)}
-  .heat2{background:rgba(255,68,68,.16)}
-  .heat3{background:rgba(255,68,68,.28)}
-  .heat4{background:rgba(255,68,68,.42)}
-  .total-row td{border-top:2px solid var(--border);font-weight:700;background:rgba(255,255,255,.02)}
-  .down-good{color:var(--red)}
-  .down-bad{color:var(--green)}
-  .legend{display:flex;flex-wrap:wrap;gap:14px;margin-top:16px;font-size:11px;color:var(--text2);font-family:var(--mono)}
-  .legend span{display:inline-flex;align-items:center;gap:5px}
-  .sw{width:12px;height:12px;border-radius:2px;display:inline-block}
+  .disp-val{color:var(--accent2);font-weight:700}
+  .down-pos{color:var(--red)}
+  .down-neg{color:var(--green)}
   .hidden{display:none!important}
-  .note{font-size:11px;color:var(--text2);line-height:1.7;margin-top:14px;padding:14px 16px;background:var(--surface2);border-radius:8px}
-  .insufficient{color:var(--accent2);font-size:11px}
+  .insufficient-msg{color:var(--accent2);font-size:13px;font-family:var(--mono);padding:30px;text-align:center}
+  .note{font-size:11px;color:var(--text2);line-height:1.7;margin-top:12px;padding:12px 16px;background:var(--surface2);border-radius:8px}
 </style>
 </head>
 <body>
 <div class="container">
   <header>
-    <div class="header-tag">Disparity Distribution Analysis</div>
-    <h1>이격도 분포 <span>분석</span></h1>
-    <p class="subtitle">RSI+CRSI 숏 신호 발생 시점의 MA7 이격도를 구간별로 집계<br>6개 코인 · 15분봉 · 종가 기준 이격도</p>
+    <div class="header-tag">Per-Coin Disparity Analysis</div>
+    <h1>이격도 분포 <span>코인별 상세</span></h1>
+    <p class="subtitle">RSI+CRSI 숏 신호별 이격도 · 하락 지속 캔들 수 · 최대 하락폭 · 발생 시각<br>코인 탭을 눌러 전환하세요</p>
   </header>
 
   <div class="config-panel">
     <div class="config-title">⚙ 분석 설정</div>
-
     <div class="cond-box">
-      <strong>필수 조건 (모두 충족 시 신호)</strong><br>
-      ① RSI14 ≥ <span id="cRsi">70</span> &amp; CRSI ≥ <span id="cCrsi">85</span><br>
-      ② RSI 증가 + CRSI 하락 (연속 2캔들)<br>
-      ③ 캔들 시초가가 구름대(스팬1·2) 위<br>
-      ④ 캔들 저가 &gt; MA7 (MA7 위에 완전히 떠 있음)<br>
-      ⑤ 캔들 고가 ≥ 볼린저밴드 상단<br>
-      <span style="color:var(--blue)">→ 위 신호들의 <strong style="color:var(--blue)">종가 기준 이격도 = (종가-MA7)/MA7×100</strong> 분포 집계</span>
+      <strong>필수 조건</strong> ① RSI14≥<span id="cRsi">70</span> &amp; CRSI≥<span id="cCrsi">85</span> · ② RSI↑+CRSI↓ · ③ 구름대 위 · ④ 저가&gt;MA7 · ⑤ 고가≥BB상단<br>
+      <span style="color:var(--accent2)">이격도 = (종가-MA7)/MA7×100</span> ·
+      <span style="color:var(--red)">최대 하락폭 = 진입가 대비 첫 양봉 전까지 최저점 하락률</span>
     </div>
-
     <div class="config-grid">
       <div class="config-item">
         <label>타임프레임</label>
-        <select id="interval">
-          <option value="15m" selected>15분봉</option>
-          <option value="30m">30분봉</option>
-        </select>
+        <select id="interval"><option value="15m" selected>15분봉</option><option value="30m">30분봉</option></select>
       </div>
       <div class="config-item">
         <label>데이터 기간</label>
-        <select id="months">
-          <option value="1">1개월</option>
-          <option value="3" selected>3개월</option>
-          <option value="6">6개월</option>
-        </select>
+        <select id="months"><option value="1">1개월</option><option value="3" selected>3개월</option><option value="6">6개월</option></select>
       </div>
       <div class="config-item">
         <label>RSI 기준 (≥)</label>
@@ -112,9 +107,8 @@
         <input type="number" id="crsiThresh" value="85" min="50" max="100">
       </div>
     </div>
-
     <div class="error-box" id="errorBox"></div>
-    <button class="run-btn" id="runBtn" onclick="runAnalysis()">▶ 이격도 분포 분석 실행</button>
+    <button class="run-btn" id="runBtn" onclick="runAnalysis()">▶ 분석 실행</button>
   </div>
 
   <div class="progress-box" id="progressBox">
@@ -123,206 +117,125 @@
   </div>
 
   <div id="results" class="hidden">
-    <!-- 신호 개수 분포 -->
-    <div class="section">
-      <div class="section-title">📊 이격도 구간별 신호 개수 / 비율</div>
-      <div class="section-sub">각 코인의 숏 신호가 어떤 이격도 구간에 분포하는지 (셀: 개수 · 비율%)</div>
-      <div class="table-wrap">
-        <table id="distTable"></table>
-      </div>
-      <div class="legend">
-        <span><span class="sw" style="background:rgba(255,68,68,.08)"></span>낮음</span>
-        <span><span class="sw" style="background:rgba(255,68,68,.16)"></span></span>
-        <span><span class="sw" style="background:rgba(255,68,68,.28)"></span></span>
-        <span><span class="sw" style="background:rgba(255,68,68,.42)"></span>높음 (해당 코인 내 비율 기준)</span>
-      </div>
-    </div>
-
-    <!-- 구간별 3캔들 하락 확률 -->
-    <div class="section">
-      <div class="section-title">📉 이격도 구간별 3캔들 하락 확률</div>
-      <div class="section-sub">각 이격도 구간에서 진입 시, 다음 3캔들이 모두 음봉일 확률 (숏 관점 성공률) · 전체 코인 합산</div>
-      <div class="table-wrap">
-        <table id="downTable"></table>
-      </div>
-      <div class="note" id="downNote"></div>
-    </div>
+    <div class="tabs" id="tabs"></div>
+    <div id="panels"></div>
   </div>
 </div>
 
 <script>
-// ── 종목 설정 ──────────────────────────────────────────
-const COINS = [
-  { id: 'BTC-USDT-SWAP',  name: 'BTC'  },
-  { id: 'ETH-USDT-SWAP',  name: 'ETH'  },
-  { id: 'XRP-USDT-SWAP',  name: 'XRP'  },
-  { id: 'SOL-USDT-SWAP',  name: 'SOL'  },
-  { id: 'SUI-USDT-SWAP',  name: 'SUI'  },
-  { id: 'DOGE-USDT-SWAP', name: 'DOGE' },
+const COINS=[
+  {id:'BTC-USDT-SWAP',name:'BTC'},
+  {id:'ETH-USDT-SWAP',name:'ETH'},
+  {id:'XRP-USDT-SWAP',name:'XRP'},
+  {id:'SOL-USDT-SWAP',name:'SOL'},
+  {id:'SUI-USDT-SWAP',name:'SUI'},
+  {id:'DOGE-USDT-SWAP',name:'DOGE'},
+];
+const BUCKETS=[
+  {label:'≤0.5%',min:-Infinity,max:0.5},
+  {label:'0.5~0.75%',min:0.5,max:0.75},
+  {label:'0.75~1.0%',min:0.75,max:1.0},
+  {label:'1.0~1.5%',min:1.0,max:1.5},
+  {label:'≥1.5%',min:1.5,max:Infinity},
 ];
 
-// 이격도 구간 정의
-const BUCKETS = [
-  { label: '≤ 0.5%',     min: -Infinity, max: 0.5 },
-  { label: '0.5~0.75%',  min: 0.5,  max: 0.75 },
-  { label: '0.75~1.0%',  min: 0.75, max: 1.0 },
-  { label: '1.0~1.5%',   min: 1.0,  max: 1.5 },
-  { label: '≥ 1.5%',     min: 1.5,  max: Infinity },
-];
-
-// ── 지표 계산 (Wilder RMA = 트레이딩뷰 방식) ──
-function calcRSI(arr, len) {
-  const out = new Array(arr.length).fill(null);
-  if (arr.length <= len) return out;
-  const gains = new Array(arr.length).fill(0);
-  const losses = new Array(arr.length).fill(0);
-  for (let i = 1; i < arr.length; i++) {
-    const d = arr[i] - arr[i-1];
-    gains[i]  = d > 0 ? d : 0;
-    losses[i] = d < 0 ? -d : 0;
-  }
-  let ag = 0, al = 0;
-  for (let i = 1; i <= len; i++) { ag += gains[i]; al += losses[i]; }
-  ag /= len; al /= len;
-  out[len] = al === 0 ? 100 : 100 - 100/(1+ag/al);
-  const alpha = 1/len;
-  for (let i = len+1; i < arr.length; i++) {
-    ag = alpha*gains[i] + (1-alpha)*ag;
-    al = alpha*losses[i] + (1-alpha)*al;
-    out[i] = al === 0 ? 100 : 100 - 100/(1+ag/al);
-  }
+function calcRSI(arr,len){
+  const out=new Array(arr.length).fill(null);
+  if(arr.length<=len)return out;
+  const g=new Array(arr.length).fill(0),l=new Array(arr.length).fill(0);
+  for(let i=1;i<arr.length;i++){const d=arr[i]-arr[i-1];g[i]=d>0?d:0;l[i]=d<0?-d:0;}
+  let ag=0,al=0;for(let i=1;i<=len;i++){ag+=g[i];al+=l[i];}ag/=len;al/=len;
+  out[len]=al===0?100:100-100/(1+ag/al);
+  const a=1/len;
+  for(let i=len+1;i<arr.length;i++){ag=a*g[i]+(1-a)*ag;al=a*l[i]+(1-a)*al;out[i]=al===0?100:100-100/(1+ag/al);}
   return out;
 }
-function calcUpDown(c){const ud=new Array(c.length).fill(0);for(let i=1;i<c.length;i++){const d=c[i]-c[i-1];if(d>0)ud[i]=ud[i-1]>0?ud[i-1]+1:1;else if(d<0)ud[i]=ud[i-1]<0?ud[i-1]-1:-1;}return ud;}
+function calcUpDown(c){const u=new Array(c.length).fill(0);for(let i=1;i<c.length;i++){const d=c[i]-c[i-1];if(d>0)u[i]=u[i-1]>0?u[i-1]+1:1;else if(d<0)u[i]=u[i-1]<0?u[i-1]-1:-1;}return u;}
 function percentRank(a,p){const o=new Array(a.length).fill(null);for(let i=p;i<a.length;i++){if(a[i]===null)continue;let c=0;for(let j=i-p+1;j<=i;j++)if(a[j]!==null&&a[j]<=a[i])c++;o[i]=c/p*100;}return o;}
 function calcCRSI(closes){
-  const rsi3=calcRSI(closes,3);
-  const udRsi=calcRSI(calcUpDown(closes),2);
+  const r=calcRSI(closes,3),u=calcRSI(calcUpDown(closes),2);
   const pm=new Array(closes.length).fill(null);
   for(let i=1;i<closes.length;i++)pm[i]=closes[i-1]!==0?((closes[i]-closes[i-1])/closes[i-1])*100:0;
   const pr=percentRank(pm,100);
-  const crsi=new Array(closes.length).fill(null);
-  for(let i=0;i<closes.length;i++)if(rsi3[i]!==null&&udRsi[i]!==null&&pr[i]!==null)crsi[i]=(rsi3[i]+udRsi[i]+pr[i])/3;
-  return crsi;
+  const o=new Array(closes.length).fill(null);
+  for(let i=0;i<closes.length;i++)if(r[i]!==null&&u[i]!==null&&pr[i]!==null)o[i]=(r[i]+u[i]+pr[i])/3;
+  return o;
 }
-function calcSMA(arr,len){const o=new Array(arr.length).fill(null);let s=0;for(let i=0;i<arr.length;i++){s+=arr[i];if(i>=len)s-=arr[i-len];if(i>=len-1)o[i]=s/len;}return o;}
+function calcSMA(a,len){const o=new Array(a.length).fill(null);let s=0;for(let i=0;i<a.length;i++){s+=a[i];if(i>=len)s-=a[i-len];if(i>=len-1)o[i]=s/len;}return o;}
 function calcBB(closes,len,mult){
-  const mid=calcSMA(closes,len);
-  const upper=new Array(closes.length).fill(null);
-  for(let i=len-1;i<closes.length;i++){
-    let sum=0;for(let j=i-len+1;j<=i;j++)sum+=(closes[j]-mid[i])**2;
-    const sd=Math.sqrt(sum/len);
-    upper[i]=mid[i]+mult*sd;
-  }
-  return upper;
+  const mid=calcSMA(closes,len),up=new Array(closes.length).fill(null);
+  for(let i=len-1;i<closes.length;i++){let s=0;for(let j=i-len+1;j<=i;j++)s+=(closes[j]-mid[i])**2;up[i]=mid[i]+mult*Math.sqrt(s/len);}
+  return up;
 }
-// 일목균형표 선행스팬1, 2
 function calcIchimoku(highs,lows){
-  const n=highs.length;
-  const conv=new Array(n).fill(null), base=new Array(n).fill(null);
+  const n=highs.length,conv=new Array(n).fill(null),base=new Array(n).fill(null);
   const hh=(s,e)=>{let m=-Infinity;for(let k=s;k<=e;k++)m=Math.max(m,highs[k]);return m;};
   const ll=(s,e)=>{let m=Infinity;for(let k=s;k<=e;k++)m=Math.min(m,lows[k]);return m;};
+  for(let i=0;i<n;i++){if(i>=8)conv[i]=(hh(i-8,i)+ll(i-8,i))/2;if(i>=25)base[i]=(hh(i-25,i)+ll(i-25,i))/2;}
+  const s1=new Array(n).fill(null),s2=new Array(n).fill(null);
   for(let i=0;i<n;i++){
-    if(i>=8)conv[i]=(hh(i-8,i)+ll(i-8,i))/2;
-    if(i>=25)base[i]=(hh(i-25,i)+ll(i-25,i))/2;
+    if(i>=26&&conv[i-26]!==null&&base[i-26]!==null)s1[i]=(conv[i-26]+base[i-26])/2;
+    if(i>=77){let m=-Infinity,l=Infinity;for(let k=i-77;k<=i-26;k++){m=Math.max(m,highs[k]);l=Math.min(l,lows[k]);}s2[i]=(m+l)/2;}
   }
-  // 스팬1=(conv+base)/2 를 26 앞으로, 스팬2=52기간 중간값을 26 앞으로
-  // 현재 캔들 기준 구름: 26봉 전 값
-  const span1=new Array(n).fill(null), span2=new Array(n).fill(null);
-  for(let i=0;i<n;i++){
-    if(i>=26 && conv[i-26]!==null && base[i-26]!==null) span1[i]=(conv[i-26]+base[i-26])/2;
-    if(i>=26+51){
-      let m=-Infinity,l=Infinity;
-      for(let k=i-26-51;k<=i-26;k++){m=Math.max(m,highs[k]);l=Math.min(l,lows[k]);}
-      span2[i]=(m+l)/2;
-    }
-  }
-  return {span1,span2};
+  return {s1,s2};
 }
 
-// ── OKX 데이터 수집 ────────────────────────────────────
-async function fetchAllCandles(symbol, bar, months) {
-  const now=Date.now();
-  const targetStart=now - months*30*24*60*60*1000;
-  const iv = bar==='15m'?15*60*1000 : 30*60*1000;
-  const warmupStart = targetStart - 350*iv; // 지표 워밍업
-  let all=[], before=null, useHistory=false, calls=0;
-  const MAX=200;
-  while(calls<MAX){
+async function fetchAll(symbol,bar,months){
+  const now=Date.now(),target=now-months*30*864e5;
+  const iv=bar==='15m'?9e5:18e5;
+  const warm=target-350*iv;
+  let all=[],before=null,hist=false,calls=0;
+  while(calls<200){
     calls++;
-    const ep = useHistory
-      ? `https://www.okx.com/api/v5/market/history-candles?instId=${symbol}&bar=${bar}&limit=100${before?'&after='+before:''}`
-      : `https://www.okx.com/api/v5/market/candles?instId=${symbol}&bar=${bar}&limit=300${before?'&after='+before:''}`;
-    let json;
-    try{ json=await (await fetch(ep)).json(); }catch(e){ break; }
-    if(json.code!=='0'||!json.data||json.data.length===0){
-      if(!useHistory){useHistory=true;continue;}
-      break;
-    }
-    all=all.concat(json.data);
-    const oldest=+json.data[json.data.length-1][0];
-    before=oldest.toString();
-    if(oldest<=warmupStart)break;
+    const ep=hist
+      ?`https://www.okx.com/api/v5/market/history-candles?instId=${symbol}&bar=${bar}&limit=100${before?'&after='+before:''}`
+      :`https://www.okx.com/api/v5/market/candles?instId=${symbol}&bar=${bar}&limit=300${before?'&after='+before:''}`;
+    let j;try{j=await(await fetch(ep)).json();}catch(e){break;}
+    if(j.code!=='0'||!j.data||!j.data.length){if(!hist){hist=true;continue;}break;}
+    all=all.concat(j.data);
+    const old=+j.data[j.data.length-1][0];before=old.toString();
+    if(old<=warm)break;
     await new Promise(r=>setTimeout(r,80));
   }
-  if(all.length===0)return [];
-  const map=new Map();
-  for(const r of all)map.set(r[0],r);
-  return [...map.values()]
-    .sort((a,b)=>+a[0]-+b[0])
-    .map(d=>({ts:+d[0],open:+d[1],high:+d[2],low:+d[3],close:+d[4]}));
+  if(!all.length)return[];
+  const m=new Map();for(const r of all)m.set(r[0],r);
+  return[...m.values()].sort((a,b)=>+a[0]-+b[0]).map(d=>({ts:+d[0],open:+d[1],high:+d[2],low:+d[3],close:+d[4]}));
 }
 
-// ── 코인 1개 분석 ──────────────────────────────────────
-function analyzeCoin(candles, months, rsiThr, crsiThr) {
-  const now=Date.now();
-  const targetStart=now - months*30*24*60*60*1000;
-  const closes=candles.map(c=>c.close);
-  const highs=candles.map(c=>c.high);
-  const lows=candles.map(c=>c.low);
-
-  const rsi=calcRSI(closes,14);
-  const crsi=calcCRSI(closes);
-  const ma7=calcSMA(closes,7);
-  const bbUpper=calcBB(closes,20,2);
-  const {span1,span2}=calcIchimoku(highs,lows);
-
-  const buckets=BUCKETS.map(()=>({count:0, down3:0}));
-  let total=0;
-
-  const minIdx=300;
-  for(let i=minIdx;i<candles.length-3;i++){
-    if(candles[i].ts < targetStart) continue; // 목표 기간만
+function analyzeCoin(candles,months,rsiThr,crsiThr){
+  const now=Date.now(),target=now-months*30*864e5;
+  const closes=candles.map(c=>c.close),highs=candles.map(c=>c.high),lows=candles.map(c=>c.low);
+  const rsi=calcRSI(closes,14),crsi=calcCRSI(closes),ma7=calcSMA(closes,7),bb=calcBB(closes,20,2);
+  const {s1,s2}=calcIchimoku(highs,lows);
+  const signals=[];
+  for(let i=300;i<candles.length-1;i++){
+    if(candles[i].ts<target)continue;
     const r0=rsi[i-1],r1=rsi[i],c0=crsi[i-1],c1=crsi[i];
     if(r0===null||r1===null||c0===null||c1===null)continue;
-    if(ma7[i]===null||bbUpper[i]===null||span1[i]===null||span2[i]===null)continue;
-
+    if(ma7[i]===null||bb[i]===null||s1[i]===null||s2[i]===null)continue;
     const cd=candles[i];
-    // 필수 조건
-    const condRsiCrsi = r1>=rsiThr && c1>=crsiThr;
-    const condMomentum = r1>r0 && c1<c0;
-    const condCloud = cd.open>span1[i] && cd.open>span2[i];
-    const condMA7 = cd.low>ma7[i];
-    const condBB = cd.high>=bbUpper[i];
-
-    if(condRsiCrsi && condMomentum && condCloud && condMA7 && condBB){
-      // 종가 기준 이격도
+    if(r1>=rsiThr&&c1>=crsiThr&&r1>r0&&c1<c0&&cd.open>s1[i]&&cd.open>s2[i]&&cd.low>ma7[i]&&cd.high>=bb[i]){
       const disp=(cd.close-ma7[i])/ma7[i]*100;
-      // 구간 분류
-      let bi=BUCKETS.findIndex(b=>disp>b.min && disp<=b.max);
-      if(bi===-1) bi = disp<=0.5?0:BUCKETS.length-1;
-      buckets[bi].count++;
-      total++;
-      // 3캔들 모두 음봉 여부
-      const d1=candles[i+1],d2=candles[i+2],d3=candles[i+3];
-      if(d1&&d2&&d3 && d1.close<d1.open && d2.close<d2.open && d3.close<d3.open)
-        buckets[bi].down3++;
+      const entry=candles[i+1];
+      if(!entry)continue;
+      let downCount=0, maxDrop=0;
+      const entryPrice=entry.open;
+      for(let k=i+1;k<candles.length;k++){
+        const c=candles[k];
+        const drop=(entryPrice-c.low)/entryPrice*100;
+        if(drop>maxDrop)maxDrop=drop;
+        if(c.close<c.open)downCount++;
+        else break;
+      }
+      signals.push({
+        signalTime:cd.ts, entryTime:entry.ts,
+        rsi:r1, crsi:c1, disp, entryPrice, downCount, maxDrop,
+      });
     }
   }
-  return {buckets, total, dataMonths: (now - candles[0].ts)/(30*24*60*60*1000)};
+  return {signals, dataMonths:(now-candles[0].ts)/(30*864e5)};
 }
 
-// ── 메인 실행 ──────────────────────────────────────────
 async function runAnalysis(){
   const interval=document.getElementById('interval').value;
   const months=+document.getElementById('months').value;
@@ -330,125 +243,131 @@ async function runAnalysis(){
   const crsiThr=+document.getElementById('crsiThresh').value;
   document.getElementById('cRsi').textContent=rsiThr;
   document.getElementById('cCrsi').textContent=crsiThr;
+  const btn=document.getElementById('runBtn'),errBox=document.getElementById('errorBox');
+  const pb=document.getElementById('progressBox'),results=document.getElementById('results');
+  btn.disabled=true;errBox.style.display='none';results.classList.add('hidden');pb.style.display='block';
 
-  const btn=document.getElementById('runBtn');
-  const errBox=document.getElementById('errorBox');
-  const progressBox=document.getElementById('progressBox');
-  const results=document.getElementById('results');
-  btn.disabled=true; errBox.style.display='none';
-  results.classList.add('hidden'); progressBox.style.display='block';
-
-  const coinResults=[];
+  const all=[];
   try{
-    for(let ci=0; ci<COINS.length; ci++){
+    for(let ci=0;ci<COINS.length;ci++){
       const coin=COINS[ci];
-      setProgress(5+ci/COINS.length*85, `📡 ${coin.name} 데이터 수집 및 분석 중... (${ci+1}/${COINS.length})`);
-      const candles=await fetchAllCandles(coin.id, interval, months);
-      if(candles.length<320){
-        coinResults.push({coin, insufficient:true, candleCount:candles.length});
-        continue;
-      }
-      const res=analyzeCoin(candles, months, rsiThr, crsiThr);
-      coinResults.push({coin, ...res, insufficient:false});
+      setP(5+ci/COINS.length*85,`📡 ${coin.name} 수집·분석 중... (${ci+1}/${COINS.length})`);
+      const candles=await fetchAll(coin.id,interval,months);
+      if(candles.length<320){all.push({coin,insufficient:true,n:candles.length});continue;}
+      const res=analyzeCoin(candles,months,rsiThr,crsiThr);
+      all.push({coin,insufficient:false,...res});
     }
-    setProgress(95,'📊 결과 집계 중...');
-    renderDist(coinResults);
-    renderDown(coinResults);
-    setProgress(100,'✅ 완료!');
-    setTimeout(()=>{progressBox.style.display='none';},400);
+    setP(95,'📊 렌더링 중...');
+    render(all);
+    setP(100,'✅ 완료!');
+    setTimeout(()=>{pb.style.display='none';},400);
     results.classList.remove('hidden');
-  }catch(e){
-    errBox.textContent='오류: '+e.message;
-    errBox.style.display='block';
-    progressBox.style.display='none';
-  }
+  }catch(e){errBox.textContent='오류: '+e.message;errBox.style.display='block';pb.style.display='none';}
   btn.disabled=false;
 }
+function setP(p,m){document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressText').textContent=m;}
 
-function setProgress(p,m){document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressText').textContent=m;}
-
-// ── 분포 테이블 ────────────────────────────────────────
-function renderDist(coinResults){
-  let html='<thead><tr><th class="coin-col">코인</th>';
-  for(const b of BUCKETS) html+=`<th>${b.label}</th>`;
-  html+='<th>총 신호</th></tr></thead><tbody>';
-
-  for(const cr of coinResults){
-    if(cr.insufficient){
-      html+=`<tr><td class="coin-col coin-name">${cr.coin.name}</td>
-        <td colspan="${BUCKETS.length+1}" class="insufficient">데이터 부족 (${cr.candleCount}봉, 3개월 미달)</td></tr>`;
-      continue;
-    }
-    html+=`<tr><td class="coin-col coin-name">${cr.coin.name}</td>`;
-    for(let bi=0; bi<BUCKETS.length; bi++){
-      const cnt=cr.buckets[bi].count;
-      const pct=cr.total>0?(cnt/cr.total*100):0;
-      // 히트맵 강도 (코인 내 비율 기준)
-      let heat='heat0';
-      if(pct>0&&pct<=10)heat='heat1';
-      else if(pct<=20)heat='heat2';
-      else if(pct<=35)heat='heat3';
-      else if(pct>35)heat='heat4';
-      html+=`<td class="${heat}"><span class="pct-val">${cnt}<br><span style="color:var(--text2);font-size:10px">${pct.toFixed(1)}%</span></span></td>`;
-    }
-    html+=`<td class="cnt-strong">${cr.total}</td></tr>`;
-  }
-
-  // 합계 행
-  const totals=BUCKETS.map((_,bi)=>coinResults.reduce((s,cr)=>s+(cr.insufficient?0:cr.buckets[bi].count),0));
-  const grandTotal=totals.reduce((a,b)=>a+b,0);
-  html+=`<tr class="total-row"><td class="coin-col">전체 합계</td>`;
-  for(let bi=0;bi<BUCKETS.length;bi++){
-    const pct=grandTotal>0?(totals[bi]/grandTotal*100):0;
-    html+=`<td>${totals[bi]}<br><span style="color:var(--text2);font-size:10px">${pct.toFixed(1)}%</span></td>`;
-  }
-  html+=`<td class="cnt-strong">${grandTotal}</td></tr>`;
-  html+='</tbody>';
-  document.getElementById('distTable').innerHTML=html;
+function render(all){
+  let tabHtml='';
+  all.forEach((c,idx)=>{
+    const cnt=c.insufficient?'!':c.signals.length;
+    tabHtml+=`<div class="tab ${idx===0?'active':''} ${c.insufficient?'insufficient':''}" onclick="switchTab(${idx})" id="tab-${idx}">
+      ${c.coin.name}<span class="badge">${cnt}</span></div>`;
+  });
+  document.getElementById('tabs').innerHTML=tabHtml;
+  let panelHtml='';
+  all.forEach((c,idx)=>{
+    panelHtml+=`<div class="coin-panel ${idx===0?'active':''}" id="panel-${idx}">${renderPanel(c)}</div>`;
+  });
+  document.getElementById('panels').innerHTML=panelHtml;
 }
 
-// ── 하락 확률 테이블 ───────────────────────────────────
-function renderDown(coinResults){
-  // 구간별 전체 합산
-  const agg=BUCKETS.map(()=>({count:0,down3:0}));
-  for(const cr of coinResults){
-    if(cr.insufficient)continue;
-    for(let bi=0;bi<BUCKETS.length;bi++){
-      agg[bi].count+=cr.buckets[bi].count;
-      agg[bi].down3+=cr.buckets[bi].down3;
-    }
-  }
-  let html='<thead><tr><th class="coin-col">이격도 구간</th><th>신호 수</th><th>3캔들 전부 음봉</th><th>하락 성공률</th></tr></thead><tbody>';
-  for(let bi=0;bi<BUCKETS.length;bi++){
-    const {count,down3}=agg[bi];
-    const rate=count>0?(down3/count*100):0;
-    const cls=rate>=50?'down-good':'down-bad';
-    html+=`<tr>
-      <td class="coin-col">${BUCKETS[bi].label}</td>
-      <td>${count}</td>
-      <td>${down3}</td>
-      <td class="${cls}" style="font-weight:700">${count>0?rate.toFixed(1)+'%':'-'}</td>
-    </tr>`;
-  }
-  html+='</tbody>';
-  document.getElementById('downTable').innerHTML=html;
+function switchTab(idx){
+  document.querySelectorAll('.tab').forEach((t,i)=>t.classList.toggle('active',i===idx));
+  document.querySelectorAll('.coin-panel').forEach((p,i)=>p.classList.toggle('active',i===idx));
+}
 
-  // 인사이트 노트
-  let best={bi:-1,rate:-1};
+function fmtTime(ts){
+  const d=new Date(ts);
+  return d.toLocaleString('ko-KR',{year:'2-digit',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+function renderPanel(c){
+  if(c.insufficient)
+    return `<div class="section"><div class="insufficient-msg">⚠ ${c.coin.name} 데이터 부족 (${c.n}봉, 분석 불가)<br>상장 기간이 짧거나 데이터를 가져오지 못했습니다.</div></div>`;
+  const sigs=c.signals;
+  if(sigs.length===0)
+    return `<div class="section"><div class="insufficient-msg">${c.coin.name} 해당 조건의 신호 없음</div></div>`;
+
+  const buckets=BUCKETS.map(()=>({count:0,downSum:0,dropSum:0}));
+  for(const s of sigs){
+    let bi=BUCKETS.findIndex(b=>s.disp>b.min&&s.disp<=b.max);
+    if(bi===-1)bi=s.disp<=0.5?0:BUCKETS.length-1;
+    buckets[bi].count++;
+    buckets[bi].downSum+=s.downCount;
+    buckets[bi].dropSum+=s.maxDrop;
+  }
+
+  const avgDown=(sigs.reduce((a,s)=>a+s.downCount,0)/sigs.length).toFixed(1);
+  const avgDrop=(sigs.reduce((a,s)=>a+s.maxDrop,0)/sigs.length).toFixed(2);
+  const maxDropAll=Math.max(...sigs.map(s=>s.maxDrop)).toFixed(2);
+
+  let html=`
+  <div class="summary-grid">
+    <div class="summary-card hl"><div class="label">총 신호</div><div class="value orange">${sigs.length}</div></div>
+    <div class="summary-card"><div class="label">평균 하락 지속</div><div class="value">${avgDown} 캔들</div></div>
+    <div class="summary-card"><div class="label">평균 최대 하락폭</div><div class="value red">${avgDrop}%</div></div>
+    <div class="summary-card"><div class="label">최대 하락폭(최고)</div><div class="value red">${maxDropAll}%</div></div>
+  </div>
+  <div class="section">
+    <div class="section-title">📊 이격도 구간별 분포 · 평균 성과</div>
+    <div class="section-sub">각 구간의 신호 수와 평균 하락 지속 캔들 / 평균 최대 하락폭</div>
+    <div class="dist-mini">`;
   for(let bi=0;bi<BUCKETS.length;bi++){
-    if(agg[bi].count>=5){ // 표본 5개 이상
-      const rate=agg[bi].down3/agg[bi].count*100;
-      if(rate>best.rate)best={bi,rate};
-    }
+    const b=buckets[bi];
+    const pct=sigs.length>0?(b.count/sigs.length*100).toFixed(0):0;
+    const avgD=b.count>0?(b.downSum/b.count).toFixed(1):'-';
+    const avgDr=b.count>0?(b.dropSum/b.count).toFixed(2):'-';
+    html+=`<div class="dist-cell">
+      <div class="range">${BUCKETS[bi].label}</div>
+      <div class="cnt">${b.count}</div>
+      <div class="pct">${pct}%</div>
+      <div class="down">지속 ${avgD}캔들<br><span class="down-pos">하락 ${avgDr}%</span></div>
+    </div>`;
   }
-  let note='💡 ';
-  if(best.bi>=0){
-    note+=`표본 5건 이상 구간 중 <b style="color:var(--red)">${BUCKETS[best.bi].label}</b> 구간의 하락 성공률이 ${best.rate.toFixed(1)}%로 가장 높습니다. `;
-    note+='이격도 컷오프 기준을 정할 때 참고하세요. 단, 신호 수(표본)가 적은 구간은 통계적 신뢰도가 낮으니 주의하세요.';
-  } else {
-    note+='표본이 부족합니다. 기간을 늘리거나 조건을 완화해보세요.';
-  }
-  document.getElementById('downNote').innerHTML=note;
+  html+=`</div></div>`;
+
+  html+=`
+  <div class="section">
+    <div class="section-title">📋 ${c.coin.name} 신호 상세 (${sigs.length}건)</div>
+    <div class="section-sub">신호 시각은 조건 충족 캔들, 진입 시각은 다음 캔들(진입 시점)입니다. 실제 차트와 대조해보세요.</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>#</th><th>신호 시각</th><th>진입 시각</th><th>RSI</th><th>CRSI</th>
+          <th>이격도</th><th>진입가</th><th>하락 지속</th><th>최대 하락폭</th>
+        </tr></thead>
+        <tbody>`;
+  sigs.slice().reverse().forEach((s,idx)=>{
+    const num=sigs.length-idx;
+    const dropCls=s.maxDrop>=0.5?'down-pos':'down-neg';
+    html+=`<tr>
+      <td>${num}</td>
+      <td>${fmtTime(s.signalTime)}</td>
+      <td style="color:var(--accent)">${fmtTime(s.entryTime)}</td>
+      <td>${s.rsi.toFixed(1)}</td>
+      <td>${s.crsi.toFixed(1)}</td>
+      <td class="disp-val">${s.disp.toFixed(3)}%</td>
+      <td>${s.entryPrice.toLocaleString(undefined,{maximumFractionDigits:4})}</td>
+      <td>${s.downCount} 캔들</td>
+      <td class="${dropCls}">${s.maxDrop.toFixed(2)}%</td>
+    </tr>`;
+  });
+  html+=`</tbody></table></div>
+    <div class="note">💡 <b>하락 지속</b>: 진입 후 첫 양봉이 나오기 전까지 연속된 음봉 수 ·
+    <b>최대 하락폭</b>: 진입가 대비 첫 양봉 전까지 최저점 하락률(숏 최대 수익 지점)</div>
+  </div>`;
+  return html;
 }
 
 document.getElementById('rsiThresh').addEventListener('input',e=>document.getElementById('cRsi').textContent=e.target.value);
