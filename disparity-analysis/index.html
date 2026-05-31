@@ -130,6 +130,7 @@
       </div>
       <div id="debugResult"></div>
     </div>
+    <div id="combinedSummary"></div>
     <div class="tabs" id="tabs"></div>
     <div id="panels"></div>
   </div>
@@ -326,6 +327,9 @@ async function runAnalysis(){
 function setP(p,m){document.getElementById('progressBar').style.width=p+'%';document.getElementById('progressText').textContent=m;}
 
 function render(all){
+  // 전체 코인 합산 요약 (컷오프 판단용)
+  document.getElementById('combinedSummary').innerHTML=renderCombined(all);
+
   let tabHtml='';
   all.forEach((c,idx)=>{
     const cnt=c.insufficient?'!':c.signals.length;
@@ -338,6 +342,68 @@ function render(all){
     panelHtml+=`<div class="coin-panel ${idx===0?'active':''}" id="panel-${idx}">${renderPanel(c)}</div>`;
   });
   document.getElementById('panels').innerHTML=panelHtml;
+}
+
+// 전체 코인 합산: 이격 구간별 전체 신호 / 즉시반등 / 실패율 / 평균하락폭
+function renderCombined(all){
+  const agg=BUCKETS.map(()=>({total:0,zero:0,dropSum:0,downSum:0}));
+  let grandTotal=0, grandZero=0;
+  for(const c of all){
+    if(c.insufficient)continue;
+    for(const s of c.signals){
+      let bi=BUCKETS.findIndex(b=>s.disp>b.min&&s.disp<=b.max);
+      if(bi===-1)bi=s.disp<=0.5?0:BUCKETS.length-1;
+      agg[bi].total++;
+      agg[bi].dropSum+=s.maxDrop;
+      agg[bi].downSum+=s.downCount;
+      if(s.downCount===0)agg[bi].zero++;
+      grandTotal++;
+      if(s.downCount===0)grandZero++;
+    }
+  }
+  if(grandTotal===0)return '<div class="insufficient-msg">집계할 신호가 없습니다.</div>';
+
+  let html=`
+  <div class="section" style="border-color:var(--accent2)">
+    <div class="section-title">🎯 전체 코인 합산 — 이격 구간별 실패율 (컷오프 판단)</div>
+    <div class="section-sub">6개 코인의 모든 신호를 합산했습니다 (표본 ${grandTotal}건, 즉시반등 ${grandZero}건).<br>
+    <b>실패율</b>(즉시 반등 비율)이 낮고 <b>평균 하락폭</b>이 큰 구간이 좋은 진입 구간입니다.</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>이격 구간</th><th>전체 신호</th><th>즉시반등(0캔들)</th><th>실패율</th><th>평균 하락 지속</th><th>평균 최대 하락폭</th></tr></thead>
+        <tbody>`;
+  for(let bi=0;bi<BUCKETS.length;bi++){
+    const a=agg[bi];
+    const failRate=a.total>0?(a.zero/a.total*100):0;
+    const avgDrop=a.total>0?(a.dropSum/a.total):0;
+    const avgDown=a.total>0?(a.downSum/a.total):0;
+    const failCls=failRate>=50?'down-pos':failRate<=25?'down-neg':'';
+    html+=`<tr>
+      <td style="text-align:left;font-weight:700">${BUCKETS[bi].label}</td>
+      <td>${a.total}</td>
+      <td>${a.zero}</td>
+      <td class="${failCls}" style="font-weight:700">${a.total>0?failRate.toFixed(0)+'%':'-'}</td>
+      <td>${a.total>0?avgDown.toFixed(1)+' 캔들':'-'}</td>
+      <td class="down-pos">${a.total>0?avgDrop.toFixed(2)+'%':'-'}</td>
+    </tr>`;
+  }
+  html+=`</tbody></table></div>`;
+
+  // 인사이트 자동 도출
+  let bestCut={bi:-1,score:-1};
+  for(let bi=0;bi<BUCKETS.length;bi++){
+    if(agg[bi].total>=5){
+      const failRate=agg[bi].zero/agg[bi].total*100;
+      const score=100-failRate; // 실패율 낮을수록 높은 점수
+      if(score>bestCut.score)bestCut={bi,score,failRate};
+    }
+  }
+  if(bestCut.bi>=0){
+    html+=`<div class="note">💡 표본 5건 이상 구간 중 <b style="color:var(--green)">${BUCKETS[bestCut.bi].label}</b> 구간의 실패율이 ${bestCut.failRate.toFixed(0)}%로 가장 낮습니다.
+    이격 구간이 커질수록 실패율이 단계적으로 낮아진다면, 그 경계를 컷오프로 잡는 것이 통계적으로 유리합니다. 단, 표본이 적은 구간은 신뢰도가 낮으니 신호 수를 함께 확인하세요.</div>`;
+  }
+  html+=`</div>`;
+  return html;
 }
 
 function switchTab(idx){
@@ -394,6 +460,41 @@ function renderPanel(c){
     </div>`;
   }
   html+=`</div></div>`;
+
+  // ── 0캔들(즉시 반등) 신호 이격도 분포 ──
+  const zeroSigs=sigs.filter(s=>s.downCount===0);
+  const zeroByBucket=BUCKETS.map(()=>0);
+  for(const s of zeroSigs){
+    let bi=BUCKETS.findIndex(b=>s.disp>b.min&&s.disp<=b.max);
+    if(bi===-1)bi=s.disp<=0.5?0:BUCKETS.length-1;
+    zeroByBucket[bi]++;
+  }
+  html+=`
+  <div class="section" style="border-color:var(--red)">
+    <div class="section-title">⚠ 즉시 반등(하락 0캔들) 신호의 이격도 분포</div>
+    <div class="section-sub">진입 직후 바로 양봉이 나온 "실패 신호"가 어느 이격 구간에 몰려 있는지 확인합니다.<br>각 구간에서 <b>전체 신호 중 몇 %가 즉시 반등이었는지</b>(실패율)를 함께 봅니다. 실패율이 높은 구간일수록 컷오프 후보입니다.</div>
+    <div class="dist-mini">`;
+  for(let bi=0;bi<BUCKETS.length;bi++){
+    const total=buckets[bi].count;
+    const zero=zeroByBucket[bi];
+    const failRate=total>0?(zero/total*100):0;
+    // 실패율에 따라 색상 강도
+    let bg='var(--surface2)';
+    if(total>0){
+      if(failRate>=60)bg='rgba(255,68,68,.25)';
+      else if(failRate>=40)bg='rgba(255,68,68,.15)';
+      else if(failRate>=20)bg='rgba(255,68,68,.08)';
+    }
+    html+=`<div class="dist-cell" style="background:${bg}">
+      <div class="range">${BUCKETS[bi].label}</div>
+      <div class="cnt">${zero}<span style="font-size:12px;color:var(--text2)">/${total}</span></div>
+      <div class="pct" style="color:${failRate>=40?'var(--red)':'var(--text2)'};font-weight:700">실패율 ${total>0?failRate.toFixed(0)+'%':'-'}</div>
+    </div>`;
+  }
+  html+=`</div>
+    <div class="note">💡 <b>실패율</b> = 해당 이격 구간 전체 신호 중 즉시 반등(0캔들) 비율 ·
+    실패율이 낮은 구간으로 갈수록 신호 신뢰도가 높습니다. 예) ≤0.5% 실패율이 70%인데 ≥1.5% 실패율이 10%라면, 이격 1% 이상만 진입하는 게 유리합니다.</div>
+  </div>`;
 
   html+=`
   <div class="section">
