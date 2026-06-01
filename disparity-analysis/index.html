@@ -103,6 +103,10 @@
         <select id="months"><option value="1">1개월</option><option value="3" selected>3개월</option><option value="6">6개월</option></select>
       </div>
       <div class="config-item">
+        <label>이동평균 종류 (MA7)</label>
+        <select id="maType"><option value="sma" selected>SMA7 (단순)</option><option value="ema">EMA7 (지수)</option></select>
+      </div>
+      <div class="config-item">
         <label>RSI 기준 (≥)</label>
         <input type="number" id="rsiThresh" value="70" min="50" max="90">
       </div>
@@ -175,6 +179,18 @@ function calcCRSI(closes){
   return o;
 }
 function calcSMA(a,len){const o=new Array(a.length).fill(null);let s=0;for(let i=0;i<a.length;i++){s+=a[i];if(i>=len)s-=a[i-len];if(i>=len-1)o[i]=s/len;}return o;}
+// EMA: 트레이딩뷰 방식 (첫 값은 SMA 시드, 이후 alpha=2/(len+1))
+function calcEMA(a,len){
+  const o=new Array(a.length).fill(null);
+  if(a.length<len)return o;
+  let seed=0;for(let i=0;i<len;i++)seed+=a[i];
+  o[len-1]=seed/len;
+  const k=2/(len+1);
+  for(let i=len;i<a.length;i++)o[i]=a[i]*k+o[i-1]*(1-k);
+  return o;
+}
+// MA7 선택: 'sma' 또는 'ema'
+function calcMA7(closes,type){return type==='ema'?calcEMA(closes,7):calcSMA(closes,7);}
 function calcBB(closes,len,mult){
   const mid=calcSMA(closes,len),up=new Array(closes.length).fill(null);
   for(let i=len-1;i<closes.length;i++){let s=0;for(let j=i-len+1;j<=i;j++)s+=(closes[j]-mid[i])**2;up[i]=mid[i]+mult*Math.sqrt(s/len);}
@@ -215,10 +231,10 @@ async function fetchAll(symbol,bar,months){
   return[...m.values()].sort((a,b)=>+a[0]-+b[0]).map(d=>({ts:+d[0],open:+d[1],high:+d[2],low:+d[3],close:+d[4]}));
 }
 
-function analyzeCoin(candles,months,rsiThr,crsiThr){
+function analyzeCoin(candles,months,rsiThr,crsiThr,maType){
   const now=Date.now(),target=now-months*30*864e5;
   const closes=candles.map(c=>c.close),highs=candles.map(c=>c.high),lows=candles.map(c=>c.low);
-  const rsi=calcRSI(closes,14),crsi=calcCRSI(closes),ma7=calcSMA(closes,7),bb=calcBB(closes,20,2);
+  const rsi=calcRSI(closes,14),crsi=calcCRSI(closes),ma7=calcMA7(closes,maType),bb=calcBB(closes,20,2);
   const {s1,s2}=calcIchimoku(highs,lows);
   const signals=[];
   for(let i=300;i<candles.length-1;i++){
@@ -247,7 +263,7 @@ function analyzeCoin(candles,months,rsiThr,crsiThr){
       });
     }
   }
-  return {signals, dataMonths:(now-candles[0].ts)/(30*864e5), _debug:{candles,rsi,crsi,ma7,bb,s1,s2}};
+  return {signals, dataMonths:(now-candles[0].ts)/(30*864e5), _debug:{candles,rsi,crsi,ma7,bb,s1,s2,maType}};
 }
 
 // 특정 시각 캔들의 조건별 통과 여부 디버그
@@ -260,7 +276,8 @@ function debugCandle(){
   const m=input.match(/(\d{4})-(\d{1,2})-(\d{1,2})\s+(\d{1,2}):(\d{1,2})/);
   if(!m){alert('형식: 2026-05-26 23:15');return;}
   const targetMs=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],+m[4]-9,+m[5])).getTime(); // KST→UTC
-  const {candles,rsi,crsi,ma7,bb,s1,s2}=DEBUG_DATA;
+  const {candles,rsi,crsi,ma7,bb,s1,s2,maType}=DEBUG_DATA;
+  const maLabel=maType==='ema'?'EMA7':'MA7';
   let idx=-1, best=Infinity;
   for(let i=0;i<candles.length;i++){
     const d=Math.abs(candles[i].ts-targetMs);
@@ -280,7 +297,7 @@ function debugCandle(){
     [`④ CRSI ≥ ${crsiThr}`, c1!==null?c1.toFixed(2):'null', c1>=crsiThr?'✅':'❌'],
     ['② 시초가 > 선행스팬1', `${cd.open} > ${s1[i]?.toFixed(1)}`, cd.open>s1[i]?'✅':'❌'],
     ['② 시초가 > 선행스팬2', `${cd.open} > ${s2[i]?.toFixed(1)}`, cd.open>s2[i]?'✅':'❌'],
-    ['③ 저가 > MA7', `${cd.low} > ${ma7[i]?.toFixed(1)}`, cd.low>ma7[i]?'✅':'❌'],
+    [`③ 저가 > ${maLabel}`, `${cd.low} > ${ma7[i]?.toFixed(1)}`, cd.low>ma7[i]?'✅':'❌'],
     ['① 고가 ≥ BB상단', `${cd.high} ≥ ${bb[i]?.toFixed(1)}`, cd.high>=bb[i]?'✅':'❌'],
   ];
   const allPass = r1>=rsiThr&&c1>=crsiThr&&cd.open>s1[i]&&cd.open>s2[i]&&cd.low>ma7[i]&&cd.high>=bb[i];
@@ -298,6 +315,7 @@ async function runAnalysis(){
   const months=+document.getElementById('months').value;
   const rsiThr=+document.getElementById('rsiThresh').value;
   const crsiThr=+document.getElementById('crsiThresh').value;
+  const maType=document.getElementById('maType').value;
   document.getElementById('cRsi').textContent=rsiThr;
   document.getElementById('cCrsi').textContent=crsiThr;
   const btn=document.getElementById('runBtn'),errBox=document.getElementById('errorBox');
@@ -311,7 +329,7 @@ async function runAnalysis(){
       setP(5+ci/COINS.length*85,`📡 ${coin.name} 수집·분석 중... (${ci+1}/${COINS.length})`);
       const candles=await fetchAll(coin.id,interval,months);
       if(candles.length<320){all.push({coin,insufficient:true,n:candles.length});continue;}
-      const res=analyzeCoin(candles,months,rsiThr,crsiThr);
+      const res=analyzeCoin(candles,months,rsiThr,crsiThr,maType);
       all.push({coin,insufficient:false,...res});
       if(coin.name==='BTC' && res._debug) DEBUG_DATA=res._debug;
     }
