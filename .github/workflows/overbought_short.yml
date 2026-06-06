@@ -1,0 +1,31 @@
+name: Overbought Short Signal
+
+on:
+  workflow_dispatch:        # cron-job.org가 이 이벤트로 호출
+  schedule:
+    - cron: '*/15 * * * *'  # 백업용: 15분마다 (GitHub Actions 자체 스케줄)
+
+jobs:
+  check-signals:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd overbought-short-bot
+          pip install -r requirements.txt
+
+      - name: Run signal check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cd overbought-short-bot
+          python overbought_short.py
