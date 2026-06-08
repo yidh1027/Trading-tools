@@ -1,0 +1,31 @@
+name: Market ADR
+
+on:
+  workflow_dispatch:        # cron-job.org가 이 이벤트로 호출
+  schedule:
+    - cron: '0 */6 * * *'   # 백업용: 6시간마다 (0시,6시,12시,18시 UTC)
+
+jobs:
+  market-adr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          cd market-adr-bot
+          pip install -r requirements.txt
+
+      - name: Run ADR check
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          cd market-adr-bot
+          python market_adr.py
