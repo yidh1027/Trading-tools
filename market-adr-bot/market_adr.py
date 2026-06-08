@@ -30,8 +30,11 @@ TG_CHAT = os.environ.get("TELEGRAM_CHAT_ID", "")
 CG_BASE = "https://api.coingecko.com/api/v3"
 OKX_BASE = "https://www.okx.com"
 
-TOP_N = 100          # 시총 상위 몇 개
-LARGE_CAP_CUTOFF = 20  # 1~20위 = 대형, 21~100위 = 알트
+TOP_N = 200          # 시총 상위 몇 개
+# 세 그룹 경계 (순위 기준)
+LARGE_MAX = 20       # 1~20위 = 대형
+MID_MAX = 80         # 21~80위 = 중형
+# 81~200위 = 소형
 HOURS = 6            # 등락 측정 기간
 BARS_BACK = HOURS * 4  # 15분봉 기준 6시간 = 24봉 전
 
@@ -58,7 +61,7 @@ def get_top_coins(n=100):
     """시총 상위 n개 코인의 순위/심볼/시총 반환"""
     coins = []
     try:
-        # per_page 최대 250, n=100이면 1페이지로 충분
+        # per_page 최대 250, n=200이면 1페이지로 충분
         r = requests.get(
             f"{CG_BASE}/coins/markets",
             params={
@@ -220,18 +223,21 @@ def main():
     okx_symbols = get_okx_spot_symbols()
     print(f"  OKX USDT 현물 {len(okx_symbols)}개")
 
-    # 4. 그룹별 ADR
+    # 4. 그룹별 ADR (세 그룹)
     print("  대형 그룹(1~20위) 계산 중...")
-    large = compute_group_adr(coins, okx_symbols, 1, LARGE_CAP_CUTOFF)
-    print("  알트 그룹(21~100위) 계산 중...")
-    alt = compute_group_adr(coins, okx_symbols, LARGE_CAP_CUTOFF + 1, TOP_N)
+    large = compute_group_adr(coins, okx_symbols, 1, LARGE_MAX)
+    print("  중형 그룹(21~80위) 계산 중...")
+    mid = compute_group_adr(coins, okx_symbols, LARGE_MAX + 1, MID_MAX)
+    print("  소형 그룹(81~200위) 계산 중...")
+    small = compute_group_adr(coins, okx_symbols, MID_MAX + 1, TOP_N)
 
     # 진단: 빠진 코인 목록 출력 (로그 전용, 텔레그램엔 안 보냄)
-    print("\n  --- 진단: 빠진 코인 ---")
-    print(f"  [대형] OKX에 없음 ({len(large['not_on_okx'])}개): {', '.join(large['not_on_okx']) or '없음'}")
-    print(f"  [대형] 데이터 실패 ({len(large['fetch_fail'])}개): {', '.join(large['fetch_fail']) or '없음'}")
-    print(f"  [알트] OKX에 없음 ({len(alt['not_on_okx'])}개): {', '.join(alt['not_on_okx']) or '없음'}")
-    print(f"  [알트] 데이터 실패 ({len(alt['fetch_fail'])}개): {', '.join(alt['fetch_fail']) or '없음'}")
+    print("\n  --- 진단: 빠진 코인 (OKX 현물에 없음) ---")
+    print(f"  [대형] ({len(large['not_on_okx'])}개): {', '.join(large['not_on_okx']) or '없음'}")
+    print(f"  [중형] ({len(mid['not_on_okx'])}개): {', '.join(mid['not_on_okx']) or '없음'}")
+    print(f"  [소형] ({len(small['not_on_okx'])}개): {', '.join(small['not_on_okx']) or '없음'}")
+    fail_all = large['fetch_fail'] + mid['fetch_fail'] + small['fetch_fail']
+    print(f"  [데이터 실패] ({len(fail_all)}개): {', '.join(fail_all) or '없음'}")
     print("  ----------------------\n")
 
     # 5. 메시지 작성
@@ -250,9 +256,13 @@ def main():
         f"  ADR: <b>{large['adr']:.2f}</b> — {interpret_adr(large['adr'])}\n"
         f"  ↑{large['up']}  ↓{large['down']}  →{large['flat']} (집계 {large['checked']}개)\n"
         f"\n"
-        f"<b>알트 (21~100위)</b>\n"
-        f"  ADR: <b>{alt['adr']:.2f}</b> — {interpret_adr(alt['adr'])}\n"
-        f"  ↑{alt['up']}  ↓{alt['down']}  →{alt['flat']} (집계 {alt['checked']}개)\n"
+        f"<b>중형 (21~80위)</b>\n"
+        f"  ADR: <b>{mid['adr']:.2f}</b> — {interpret_adr(mid['adr'])}\n"
+        f"  ↑{mid['up']}  ↓{mid['down']}  →{mid['flat']} (집계 {mid['checked']}개)\n"
+        f"\n"
+        f"<b>소형 (81~200위)</b>\n"
+        f"  ADR: <b>{small['adr']:.2f}</b> — {interpret_adr(small['adr'])}\n"
+        f"  ↑{small['up']}  ↓{small['down']}  →{small['flat']} (집계 {small['checked']}개)\n"
         f"━━━━━━━━━━━━━━━\n"
         f"<b>도미넌스</b>\n"
         f"  BTC: {g['btc_dom']:.1f}%   ETH: {g['eth_dom']:.1f}%\n"
