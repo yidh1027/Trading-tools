@@ -7,8 +7,9 @@
 데이터 흐름:
   1. CoinGecko global → 도미넌스(BTC.D, ETH.D), 전체 시총 (TOTAL3 계산용)
   2. CoinGecko markets → 시총 상위 100개 코인 순위 + 심볼
-  3. OKX instruments → OKX에 상장된 USDT 무기한 선물 목록
+  3. OKX instruments → OKX에 상장된 USDT 현물 목록
   4. (1~100위 중 OKX에 있는 코인) 각각의 6시간 전/현재 종가 → 6시간 등락 계산
+     (ADR은 시장 분위기 측정이므로 현물 가격 사용 — 표본 최대화)
   5. 그룹별 ADR = 상승 개수 / 하락 개수
      - 대형: 시총 1~20위
      - 알트: 시총 21~100위
@@ -81,19 +82,19 @@ def get_top_coins(n=100):
     return coins
 
 
-def get_okx_swap_symbols():
-    """OKX에 상장된 USDT 무기한 선물의 코인 심볼 집합 반환 (예: {'BTC','ETH',...})"""
+def get_okx_spot_symbols():
+    """OKX에 상장된 USDT 현물의 코인 심볼 집합 반환 (예: {'BTC','ETH',...})"""
     symbols = set()
     try:
         r = requests.get(
             f"{OKX_BASE}/api/v5/public/instruments",
-            params={"instType": "SWAP"},
+            params={"instType": "SPOT"},
             timeout=20,
         )
         for inst in r.json().get("data", []):
             inst_id = inst.get("instId", "")
-            # 'BTC-USDT-SWAP' 형식만
-            if inst_id.endswith("-USDT-SWAP"):
+            # 'BTC-USDT' 형식만 (USDT 현물 페어)
+            if inst_id.endswith("-USDT"):
                 base = inst_id.split("-")[0]
                 symbols.add(base)
     except Exception as e:
@@ -107,7 +108,7 @@ def get_6h_change(symbol):
     15분봉 (BARS_BACK+2)개를 가져와 현재 종가 vs 6시간 전(24봉 전) 종가 비교.
     실패 시 None.
     """
-    inst_id = f"{symbol}-USDT-SWAP"
+    inst_id = f"{symbol}-USDT"   # OKX 현물 페어
     try:
         r = requests.get(
             f"{OKX_BASE}/api/v5/market/candles",
@@ -212,8 +213,8 @@ def main():
     print(f"  시총 상위 {len(coins)}개 수집")
 
     # 3. OKX 상장 목록
-    okx_symbols = get_okx_swap_symbols()
-    print(f"  OKX USDT 선물 {len(okx_symbols)}개")
+    okx_symbols = get_okx_spot_symbols()
+    print(f"  OKX USDT 현물 {len(okx_symbols)}개")
 
     # 4. 그룹별 ADR
     print("  대형 그룹(1~20위) 계산 중...")
