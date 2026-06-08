@@ -131,21 +131,22 @@ def get_6h_change(symbol):
 def compute_group_adr(coins, okx_symbols, low_rank, high_rank):
     """
     지정 순위 범위(low~high위) 코인들의 6시간 등락으로 ADR 계산.
-    반환: dict(up, down, flat, adr, checked, missing)
+    반환: dict(up, down, flat, adr, checked, missing, not_on_okx, fetch_fail)
     """
     up = down = flat = 0
     checked = 0
-    missing = 0
+    not_on_okx = []   # OKX에 없는 코인
+    fetch_fail = []   # OKX엔 있지만 데이터 못 가져온 코인
     for c in coins:
         if not (low_rank <= c["rank"] <= high_rank):
             continue
         if c["symbol"] not in okx_symbols:
-            missing += 1   # OKX에 없는 코인
+            not_on_okx.append(c["symbol"])
             continue
         change = get_6h_change(c["symbol"])
         time.sleep(0.05)   # OKX 호출 간격
         if change is None:
-            missing += 1
+            fetch_fail.append(c["symbol"])
             continue
         checked += 1
         if change > 0:
@@ -157,7 +158,10 @@ def compute_group_adr(coins, okx_symbols, low_rank, high_rank):
     adr = (up / down) if down > 0 else (up if up > 0 else 0)
     return {
         "up": up, "down": down, "flat": flat,
-        "adr": adr, "checked": checked, "missing": missing,
+        "adr": adr, "checked": checked,
+        "missing": len(not_on_okx) + len(fetch_fail),
+        "not_on_okx": not_on_okx,
+        "fetch_fail": fetch_fail,
     }
 
 
@@ -221,6 +225,14 @@ def main():
     large = compute_group_adr(coins, okx_symbols, 1, LARGE_CAP_CUTOFF)
     print("  알트 그룹(21~100위) 계산 중...")
     alt = compute_group_adr(coins, okx_symbols, LARGE_CAP_CUTOFF + 1, TOP_N)
+
+    # 진단: 빠진 코인 목록 출력 (로그 전용, 텔레그램엔 안 보냄)
+    print("\n  --- 진단: 빠진 코인 ---")
+    print(f"  [대형] OKX에 없음 ({len(large['not_on_okx'])}개): {', '.join(large['not_on_okx']) or '없음'}")
+    print(f"  [대형] 데이터 실패 ({len(large['fetch_fail'])}개): {', '.join(large['fetch_fail']) or '없음'}")
+    print(f"  [알트] OKX에 없음 ({len(alt['not_on_okx'])}개): {', '.join(alt['not_on_okx']) or '없음'}")
+    print(f"  [알트] 데이터 실패 ({len(alt['fetch_fail'])}개): {', '.join(alt['fetch_fail']) or '없음'}")
+    print("  ----------------------\n")
 
     # 5. 메시지 작성
     def fmt_mcap(v):
