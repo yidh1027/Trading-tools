@@ -137,12 +137,20 @@ def get_binance_symbols():
     symbols = set()
     try:
         r = requests.get(f"{BINANCE_BASE}/api/v3/exchangeInfo", timeout=20)
-        for s in r.json().get("symbols", []):
+        # 진단: HTTP 상태 코드 출력
+        print(f"    [바이낸스 진단] HTTP {r.status_code}")
+        if r.status_code != 200:
+            print(f"    [바이낸스 진단] 응답 일부: {r.text[:200]}")
+            return symbols
+        data = r.json()
+        all_symbols = data.get("symbols", [])
+        print(f"    [바이낸스 진단] 전체 심볼 수: {len(all_symbols)}")
+        for s in all_symbols:
             # quoteAsset이 USDT이고 거래중(TRADING)인 것만
             if s.get("quoteAsset") == "USDT" and s.get("status") == "TRADING":
                 symbols.add(s.get("baseAsset", ""))
     except Exception as e:
-        print(f"  [바이낸스 exchangeInfo 오류] {e}")
+        print(f"  [바이낸스 exchangeInfo 오류] {type(e).__name__}: {e}")
     return symbols
 
 
