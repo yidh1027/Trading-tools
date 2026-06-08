@@ -29,6 +29,7 @@ TG_CHAT = os.environ.get("TELEGRAM_CHAT_ID", "")
 
 CG_BASE = "https://api.coingecko.com/api/v3"
 OKX_BASE = "https://www.okx.com"
+BINANCE_BASE = "https://api.binance.com"
 
 TOP_N = 200          # 시총 상위 몇 개
 # 세 그룹 경계 (순위 기준)
@@ -131,39 +132,106 @@ def get_6h_change(symbol):
         return None
 
 
-def compute_group_adr(coins, okx_symbols, low_rank, high_rank):
+def get_binance_symbols():
+    """바이낸스에 상장된 USDT 현물의 코인 심볼 집합 반환 (예: {'BTC','ETH',...})"""
+    symbols = set()
+    try:
+        r = requests.get(f"{BINANCE_BASE}/api/v3/exchangeInfo", timeout=20)
+        for s in r.json().get("symbols", []):
+            # quoteAsset이 USDT이고 거래중(TRADING)인 것만
+            if s.get("quoteAsset") == "USDT" and s.get("status") == "TRADING":
+                symbols.add(s.get("baseAsset", ""))
+    except Exception as e:
+        print(f"  [바이낸스 exchangeInfo 오류] {e}")
+    return symbols
+
+
+def get_6h_change_binance(symbol):
     """
-    지정 순위 범위(low~high위) 코인들의 6시간 등락으로 ADR 계산.
-    반환: dict(up, down, flat, adr, checked, missing, not_on_okx, fetch_fail)
+    바이낸스에서 해당 코인의 6시간 등락률(%) 반환.
+    klines 15분봉 (BARS_BACK+2)개를 가져와 현재 종가 vs 6시간 전 종가 비교.
+    실패 시 None.
+    """
+    pair = f"{symbol}USDT"   # 바이낸스는 하이픈 없는 형식
+    try:
+        r = requests.get(
+            f"{BINANCE_BASE}/api/v3/klines",
+            params={"symbol": pair, "interval": "15m", "limit": BARS_BACK + 2},
+            timeout=15,
+        )
+        data = r.json()
+        # 바이낸스 klines는 오래된순(오름차순). 인덱스 4 = 종가
+        # 마지막=가장최근, BARS_BACK 이전 위치 = 6시간 전
+        if not isinstance(data, list) or len(data) < BARS_BACK + 1:
+            return None
+        now_close = float(data[-1][4])
+        past_close = float(data[-1 - BARS_BACK][4])
+        if past_close == 0:
+            return None
+        return (now_close - past_close) / past_close * 100
+    except Exception:
+        return None
+
+
+def compute_group_adr(coins, okx_symbols, binance_symbols, low_rank, high_rank):
+    """
+    지정 순위 범위 코인들의 6시간 등락으로 ADR 계산.
+    OKX 우선, OKX에 없거나 실패하면 바이낸스로 보완.
     """
     up = down = flat = 0
     checked = 0
-    not_on_okx = []   # OKX에 없는 코인
-    fetch_fail = []   # OKX엔 있지만 데이터 못 가져온 코인
+    from_okx = 0
+    from_binance = 0
+    not_anywhere = []   # OKX·바이낸스 둘 다 없는 코인
+    fetch_fail = []     # 거래소엔 있지만 데이터 못 가져온 코인
     for c in coins:
         if not (low_rank <= c["rank"] <= high_rank):
             continue
-        if c["symbol"] not in okx_symbols:
-            not_on_okx.append(c["symbol"])
-            continue
-        change = get_6h_change(c["symbol"])
-        time.sleep(0.05)   # OKX 호출 간격
+        sym = c["symbol"]
+        change = None
+        source = None
+
+        # 1) OKX 우선
+        if sym in okx_symbols:
+            change = get_6h_change(sym)
+            time.sleep(0.05)
+            if change is not None:
+                source = "okx"
+
+        # 2) OKX 실패/없음 → 바이낸스 시도
+        if change is None and sym in binance_symbols:
+            change = get_6h_change_binance(sym)
+            time.sleep(0.05)
+            if change is not None:
+                source = "binance"
+
+        # 3) 둘 다 안 됨
         if change is None:
-            fetch_fail.append(c["symbol"])
+            if sym not in okx_symbols and sym not in binance_symbols:
+                not_anywhere.append(sym)
+            else:
+                fetch_fail.append(sym)
             continue
+
         checked += 1
+        if source == "okx":
+            from_okx += 1
+        else:
+            from_binance += 1
+
         if change > 0:
             up += 1
         elif change < 0:
             down += 1
         else:
             flat += 1
+
     adr = (up / down) if down > 0 else (up if up > 0 else 0)
     return {
         "up": up, "down": down, "flat": flat,
         "adr": adr, "checked": checked,
-        "missing": len(not_on_okx) + len(fetch_fail),
-        "not_on_okx": not_on_okx,
+        "from_okx": from_okx, "from_binance": from_binance,
+        "not_anywhere": not_anywhere,
         "fetch_fail": fetch_fail,
     }
 
@@ -219,23 +287,28 @@ def main():
         return
     print(f"  시총 상위 {len(coins)}개 수집")
 
-    # 3. OKX 상장 목록
+    # 3. OKX + 바이낸스 상장 목록
     okx_symbols = get_okx_spot_symbols()
     print(f"  OKX USDT 현물 {len(okx_symbols)}개")
+    binance_symbols = get_binance_symbols()
+    print(f"  바이낸스 USDT 현물 {len(binance_symbols)}개")
 
-    # 4. 그룹별 ADR (세 그룹)
+    # 4. 그룹별 ADR (세 그룹, OKX 우선 + 바이낸스 보완)
     print("  대형 그룹(1~20위) 계산 중...")
-    large = compute_group_adr(coins, okx_symbols, 1, LARGE_MAX)
+    large = compute_group_adr(coins, okx_symbols, binance_symbols, 1, LARGE_MAX)
     print("  중형 그룹(21~80위) 계산 중...")
-    mid = compute_group_adr(coins, okx_symbols, LARGE_MAX + 1, MID_MAX)
+    mid = compute_group_adr(coins, okx_symbols, binance_symbols, LARGE_MAX + 1, MID_MAX)
     print("  소형 그룹(81~200위) 계산 중...")
-    small = compute_group_adr(coins, okx_symbols, MID_MAX + 1, TOP_N)
+    small = compute_group_adr(coins, okx_symbols, binance_symbols, MID_MAX + 1, TOP_N)
 
-    # 진단: 빠진 코인 목록 출력 (로그 전용, 텔레그램엔 안 보냄)
-    print("\n  --- 진단: 빠진 코인 (OKX 현물에 없음) ---")
-    print(f"  [대형] ({len(large['not_on_okx'])}개): {', '.join(large['not_on_okx']) or '없음'}")
-    print(f"  [중형] ({len(mid['not_on_okx'])}개): {', '.join(mid['not_on_okx']) or '없음'}")
-    print(f"  [소형] ({len(small['not_on_okx'])}개): {', '.join(small['not_on_okx']) or '없음'}")
+    # 진단 (로그 전용, 텔레그램엔 안 보냄)
+    print("\n  --- 진단: 데이터 출처 ---")
+    print(f"  [대형] OKX {large['from_okx']}개 + 바이낸스 {large['from_binance']}개 = {large['checked']}개")
+    print(f"  [중형] OKX {mid['from_okx']}개 + 바이낸스 {mid['from_binance']}개 = {mid['checked']}개")
+    print(f"  [소형] OKX {small['from_okx']}개 + 바이낸스 {small['from_binance']}개 = {small['checked']}개")
+    none_all = large['not_anywhere'] + mid['not_anywhere'] + small['not_anywhere']
+    print(f"\n  --- 어디에도 없는 코인 ({len(none_all)}개) ---")
+    print(f"  {', '.join(none_all) or '없음'}")
     fail_all = large['fetch_fail'] + mid['fetch_fail'] + small['fetch_fail']
     print(f"  [데이터 실패] ({len(fail_all)}개): {', '.join(fail_all) or '없음'}")
     print("  ----------------------\n")
