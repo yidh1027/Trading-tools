@@ -1,9 +1,7 @@
 name: Overbought Short Signal
 
 on:
-  workflow_dispatch:        # cron-job.org가 이 이벤트로 호출
-  schedule:
-    - cron: '*/15 * * * *'  # 백업용: 15분마다 (GitHub Actions 자체 스케줄)
+  workflow_dispatch:        # cron-job.org가 이 이벤트로 호출 (유일한 실행 경로)
 
 jobs:
   check-signals:
