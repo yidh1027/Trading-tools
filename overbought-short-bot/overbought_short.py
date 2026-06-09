@@ -189,8 +189,9 @@ def main():
         else:
             print(f"  [{name}] 신호 없음")
 
-    # 헬스체크: 지정 시각대(9시)에 실행되면 상태 메시지 전송
-    if now_kst.hour == HEALTHCHECK_HOUR:
+    # 헬스체크: 지정 시각대 첫 실행(9시 0~14분)에만 1회 전송
+    # 신호봇은 15분마다 실행되므로 minute<15 조건으로 9시대 첫 실행만 잡음
+    if now_kst.hour == HEALTHCHECK_HOUR and now_kst.minute < 15:
         health = (
             f"✅ <b>신호봇 정상 작동 중</b>\n\n"
             f"시각: {now_kst.strftime('%Y-%m-%d %H:%M')} (KST)\n"
