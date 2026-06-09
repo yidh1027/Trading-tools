@@ -1,9 +1,7 @@
 name: Market ADR
 
 on:
-  workflow_dispatch:        # cron-job.org가 이 이벤트로 호출
-  schedule:
-    - cron: '0 */6 * * *'   # 백업용: 6시간마다 (0시,6시,12시,18시 UTC)
+  workflow_dispatch:        # cron-job.org가 이 이벤트로 호출 (유일한 실행 경로)
 
 jobs:
   market-adr:
